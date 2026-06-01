@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="DigitalMarketing - Profile-Based Multi-Seller Marketplace" />
+    <title>DigitalMarketing</title>
+    <!-- Use Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="/src/style.css" rel="stylesheet">
+  </head>
+  <body>
+    <!-- Navbar -->
+    <nav class="navbar glass">
+      <div class="container nav-content">
+        <div class="logo" id="nav-logo">
+          <i data-lucide="store" class="logo-icon"></i>
+          <span>DigitalMarketing</span>
+        </div>
+        <div class="nav-links">
+          <button class="btn btn-ghost" id="nav-home">Home</button>
+          <button class="btn btn-ghost" id="nav-shop">Shop</button>
+          
+          <!-- Dynamic Auth Container -->
+          <div class="nav-auth-section" id="nav-auth-section">
+            <!-- Default state (logged out) -->
+            <button class="btn btn-primary" id="nav-login">Sign In</button>
+            
+            <!-- Logged in state (dropdown) - initially hidden -->
+            <div class="dropdown hidden" id="nav-profile-dropdown">
+              <button class="btn btn-primary dropdown-toggle" id="btn-profile-toggle">
+                <i data-lucide="user"></i> Profile <i data-lucide="chevron-down"></i>
+              </button>
+              <div class="dropdown-menu glass">
+                <a href="#" class="dropdown-item" id="nav-drop-dashboard"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+                <a href="#" class="dropdown-item" id="nav-drop-settings"><i data-lucide="settings"></i> Settings</a>
+                <div class="dropdown-divider"></div>
+                <a href="#" class="dropdown-item text-danger" id="nav-drop-logout"><i data-lucide="log-out"></i> Logout</a>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn btn-icon" id="theme-toggle" aria-label="Toggle dark mode">
+            <i data-lucide="moon"></i>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Container for Views -->
+    <main id="app" class="container">
+      <!-- Views will be injected here by app.ts -->
+    </main>
+
+    <!-- Templates for Views -->
+    <!-- Landing Page (Marketplace View) -->
+    <template id="view-marketplace">
+      <!-- Hero Section -->
+      <div class="hero-section">
+        <div class="hero-content">
+          <h1 class="hero-title text-gradient">Empower Your Commerce</h1>
+          <p class="hero-subtitle">Discover unique products or launch your own shop in minutes. The ultimate premium marketplace experience awaits.</p>
+          <div class="hero-cta">
+            <button class="btn btn-primary btn-lg" id="btn-hero-shop">Start Shopping</button>
+            <button class="btn btn-ghost btn-lg hero-ghost-btn" id="btn-hero-sell">Open a Shop</button>
+          </div>
+        </div>
+        <div class="hero-visual" id="hero-ads-container">
+          <div class="hero-ads-placeholder skeleton" style="width:100%; max-width:500px; aspect-ratio:4/3; border-radius:24px; display:flex; align-items:center; justify-content:center;">
+            <p class="text-muted">Loading ads...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Featured Products Area -->
+      <div class="featured-section" id="featured-section">
+        <div class="featured-header">
+          <h2>Featured Products</h2>
+          <div class="search-bar">
+            <i data-lucide="search"></i>
+            <input type="text" id="search-input" placeholder="Search products or sellers..." />
+          </div>
+        </div>
+        <div class="product-grid" id="marketplace-grid">
+          <!-- Product Cards go here -->
+        </div>
+      </div>
+    </template>
+
+    <!-- Dedicated Shopping Page View -->
+    <template id="view-shop">
+      <div class="shop-layout">
+        <!-- Sidebar Filters -->
+        <aside class="filter-sidebar glass">
+          <h3 style="margin-bottom:1.5rem; font-size:1.25rem;">Filters</h3>
+          
+          <div class="form-group">
+            <label>Price Range</label>
+            <div style="display:flex; gap:0.5rem; align-items:center;">
+              <input type="number" id="filter-min-price" placeholder="Min $" style="width:100%" />
+              <span>-</span>
+              <input type="number" id="filter-max-price" placeholder="Max $" style="width:100%" />
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>Sort By</label>
+            <select id="filter-sort" style="width:100%; padding:0.75rem; border-radius:var(--radius-md); border:1px solid var(--slate-300); background:var(--bg-color); color:var(--text-color);">
+              <option value="newest">Newest Arrivals</option>
+              <option value="price_asc">Price: Low to High</option>
+              <option value="price_desc">Price: High to Low</option>
+            </select>
+          </div>
+          
+          <button class="btn btn-primary w-full" style="margin-top:1rem;" id="btn-apply-filters">Apply Filters</button>
+          <button class="btn btn-ghost w-full" style="margin-top:0.5rem;" id="btn-clear-filters">Clear All</button>
+        </aside>
+        
+        <!-- Main Product Area -->
+        <div class="shop-main">
+          <div class="shop-header" style="margin-bottom:2rem;">
+            <h1 class="text-gradient" style="font-size:2.5rem;">Explore Marketplace</h1>
+            <div class="search-bar" style="max-width:100%; margin-top:1.5rem;">
+              <i data-lucide="search"></i>
+              <input type="text" id="shop-search-input" placeholder="Search by product name or seller..." style="width:100%;" />
+            </div>
+          </div>
+          <div class="product-grid" id="shop-grid" style="padding-top:0;">
+            <!-- Product Cards go here -->
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Seller Profile View -->
+    <template id="view-seller-profile">
+      <div class="profile-header glass">
+        <img id="sp-logo" src="" alt="Seller Logo" class="profile-logo" />
+        <div class="profile-info">
+          <h1 id="sp-name">Business Name</h1>
+          <p id="sp-description">Business Description...</p>
+          <a id="sp-email" href="" class="contact-link"><i data-lucide="mail"></i> Contact</a>
+        </div>
+      </div>
+      <h2 class="section-title">Products</h2>
+      <div class="product-grid" id="sp-products">
+        <!-- Product Cards go here -->
+      </div>
+    </template>
+
+    <!-- Dashboard View -->
+    <template id="view-dashboard">
+      <div class="dashboard-layout">
+        <aside class="sidebar glass">
+          <nav class="sidebar-nav">
+            <button class="tab-btn active" data-tab="profile">
+              <i data-lucide="user"></i> My Profile
+            </button>
+            <button class="tab-btn" data-tab="products">
+              <i data-lucide="package"></i> My Products
+            </button>
+            <button class="tab-btn" data-tab="ads">
+              <i data-lucide="megaphone"></i> My Ads
+            </button>
+            <button class="tab-btn text-danger" id="btn-logout">
+              <i data-lucide="log-out"></i> Logout
+            </button>
+          </nav>
+        </aside>
+        <div class="dashboard-content" id="dashboard-main">
+          <!-- Auth / Profile / Products forms will be injected here -->
+        </div>
+      </div>
+    </template>
+    
+    <!-- Auth View Template -->
+    <template id="view-auth">
+      <div class="auth-container">
+        <div class="auth-card glass">
+          <div class="auth-tabs">
+            <button class="auth-tab active" id="tab-login">Login</button>
+            <button class="auth-tab" id="tab-register">Register</button>
+          </div>
+          
+          <div class="auth-content">
+            <!-- Login Form -->
+            <form id="login-form" class="form active-form">
+              <h2 class="auth-title">Welcome Back</h2>
+              <div class="form-group">
+                <label for="login-email">Email</label>
+                <div class="input-with-icon">
+                  <i data-lucide="mail"></i>
+                  <input type="email" id="login-email" placeholder="you@example.com" required autocomplete="email" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="login-password">Password</label>
+                <div class="input-with-icon">
+                  <i data-lucide="lock"></i>
+                  <input type="password" id="login-password" placeholder="Your password" required autocomplete="current-password" />
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary w-full" id="login-submit-btn">Log In</button>
+              <p id="login-global-error" class="field-error text-center" style="margin-top:0.75rem;"></p>
+            </form>
+
+            <!-- Register Form — 3-step wizard -->
+            <div id="register-form" class="hidden-form">
+
+              <!-- Step 1: Role picker -->
+              <div id="reg-step-1" class="reg-step active-form">
+                <h2 class="auth-title">Join as…</h2>
+                <p class="text-muted text-sm text-center" style="margin-bottom:1.75rem;">Choose how you want to use DigitalMarketing.</p>
+                <div class="role-picker">
+                  <button type="button" class="role-card" id="role-buyer" data-role="buyer">
+                    <div class="role-card-logo">
+                      <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <!-- Body -->
+                        <circle cx="40" cy="26" r="14" fill="#34d399"/>
+                        <!-- Face highlight -->
+                        <circle cx="40" cy="24" r="10" fill="#6ee7b7"/>
+                        <!-- Eyes -->
+                        <circle cx="36" cy="23" r="1.8" fill="#065f46"/>
+                        <circle cx="44" cy="23" r="1.8" fill="#065f46"/>
+                        <!-- Smile -->
+                        <path d="M36 28 Q40 32 44 28" stroke="#065f46" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+                        <!-- Shoulders / torso -->
+                        <path d="M20 62 Q20 46 40 46 Q60 46 60 62" fill="#10b981"/>
+                        <!-- Shopping bag -->
+                        <rect x="30" y="52" width="20" height="16" rx="3" fill="#fff" stroke="#059669" stroke-width="1.5"/>
+                        <path d="M35 52 Q35 47 40 47 Q45 47 45 52" stroke="#059669" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                        <!-- Bag handle dots -->
+                        <circle cx="35" cy="60" r="1.2" fill="#059669"/>
+                        <circle cx="45" cy="60" r="1.2" fill="#059669"/>
+                      </svg>
+                    </div>
+                    <p class="role-card-title">Buyer</p>
+                    <p class="role-card-desc text-muted text-sm">Browse and purchase products from sellers.</p>
+                  </button>
+                  <button type="button" class="role-card" id="role-seller" data-role="seller">
+                    <div class="role-card-logo">
+                      <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <!-- Shop building -->
+                        <rect x="14" y="38" width="52" height="30" rx="3" fill="#10b981"/>
+                        <!-- Roof / awning -->
+                        <path d="M10 38 L40 18 L70 38 Z" fill="#34d399"/>
+                        <!-- Awning stripe -->
+                        <path d="M10 38 L70 38" stroke="#059669" stroke-width="2"/>
+                        <!-- Door -->
+                        <rect x="33" y="52" width="14" height="16" rx="2" fill="#fff" opacity="0.9"/>
+                        <!-- Door knob -->
+                        <circle cx="44" cy="60" r="1.5" fill="#059669"/>
+                        <!-- Left window -->
+                        <rect x="18" y="44" width="11" height="9" rx="2" fill="#fff" opacity="0.85"/>
+                        <line x1="23.5" y1="44" x2="23.5" y2="53" stroke="#d1fae5" stroke-width="1"/>
+                        <line x1="18" y1="48.5" x2="29" y2="48.5" stroke="#d1fae5" stroke-width="1"/>
+                        <!-- Right window -->
+                        <rect x="51" y="44" width="11" height="9" rx="2" fill="#fff" opacity="0.85"/>
+                        <line x1="56.5" y1="44" x2="56.5" y2="53" stroke="#d1fae5" stroke-width="1"/>
+                        <line x1="51" y1="48.5" x2="62" y2="48.5" stroke="#d1fae5" stroke-width="1"/>
+                        <!-- Sign above door -->
+                        <rect x="28" y="40" width="24" height="8" rx="2" fill="#fff" opacity="0.9"/>
+                        <rect x="31" y="43" width="6" height="2" rx="1" fill="#10b981"/>
+                        <rect x="39" y="43" width="10" height="2" rx="1" fill="#10b981"/>
+                      </svg>
+                    </div>
+                    <p class="role-card-title">Seller</p>
+                    <p class="role-card-desc text-muted text-sm">List your products and grow your business.</p>
+                  </button>
+                </div>
+                <p id="err-role" class="field-error text-center" style="margin-top:0.75rem;"></p>
+              </div>
+
+              <!-- Step 2: Details form -->
+              <div id="reg-step-2" class="reg-step" style="display:none;">
+                <div class="reg-step-header">
+                  <button type="button" class="btn btn-icon reg-back-btn" id="reg-back-to-1" aria-label="Back">
+                    <i data-lucide="arrow-left"></i>
+                  </button>
+                  <div>
+                    <h2 class="auth-title" style="margin-bottom:0.25rem; text-align:left;">Create Account</h2>
+                    <p class="text-muted text-sm" id="reg-role-label"></p>
+                  </div>
+                </div>
+
+                <form id="register-details-form" class="form" style="margin-top:1.25rem;" novalidate>
+                  <div class="form-group">
+                    <label for="register-email">Email <span class="field-required">*</span></label>
+                    <div class="input-with-icon">
+                      <i data-lucide="mail"></i>
+                      <input type="email" id="register-email" placeholder="you@example.com" autocomplete="email" />
+                    </div>
+                    <p class="field-error" id="err-email"></p>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="register-password">Password <span class="field-required">*</span></label>
+                    <div class="input-with-icon">
+                      <i data-lucide="lock"></i>
+                      <input type="password" id="register-password" placeholder="Min. 8 characters" minlength="8" autocomplete="new-password" />
+                      <button type="button" class="password-toggle" id="toggle-password" aria-label="Show password">
+                        <i data-lucide="eye"></i>
+                      </button>
+                    </div>
+                    <div class="password-strength">
+                      <div class="strength-bar"><span id="strength-fill"></span></div>
+                      <p class="strength-label text-sm" id="strength-label"></p>
+                    </div>
+                    <p class="field-error" id="err-password"></p>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="register-confirm">Confirm Password <span class="field-required">*</span></label>
+                    <div class="input-with-icon">
+                      <i data-lucide="lock-keyhole"></i>
+                      <input type="password" id="register-confirm" placeholder="Re-enter your password" minlength="8" autocomplete="new-password" />
+                      <button type="button" class="password-toggle" id="toggle-confirm" aria-label="Show confirm password">
+                        <i data-lucide="eye"></i>
+                      </button>
+                    </div>
+                    <p class="field-error" id="err-confirm"></p>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="register-address">Address <span class="field-required">*</span></label>
+                    <div class="input-with-icon">
+                      <i data-lucide="map-pin"></i>
+                      <input type="text" id="register-address" placeholder="Street, City, Province / ZIP" autocomplete="street-address" />
+                    </div>
+                    <p class="field-error" id="err-address"></p>
+                  </div>
+
+                  <p class="register-terms text-sm text-muted">
+                    By signing up you agree to our <a href="#" class="terms-link">Terms of Service</a>.
+                  </p>
+
+                  <button type="submit" class="btn btn-primary w-full" id="register-submit-btn">
+                    <i data-lucide="user-plus"></i> Create Account
+                  </button>
+                  <p id="register-global-error" class="field-error text-center" style="margin-top:0.75rem;"></p>
+                </form>
+              </div>
+
+              <!-- Step 3: Email confirmation waiting screen -->
+              <div id="reg-step-3" class="reg-step" style="display:none;">
+                <div class="reg-confirm-screen">
+                  <div class="reg-confirm-icon">
+                    <i data-lucide="mail-check"></i>
+                  </div>
+                  <h2 class="reg-confirm-title">Check your inbox</h2>
+                  <p class="reg-confirm-body text-muted">
+                    We sent a confirmation link to<br />
+                    <strong id="reg-confirm-email"></strong>
+                  </p>
+                  <p class="text-muted text-sm" style="margin-top:0.75rem;">
+                    Click the link in the email to activate your account. Once confirmed, you'll be taken to the login page.
+                  </p>
+                  <div class="reg-confirm-divider"></div>
+                  <p class="text-sm text-muted">Didn't receive it? Check your spam folder or</p>
+                  <button type="button" class="btn btn-ghost btn-sm" id="reg-resend-btn">
+                    <i data-lucide="refresh-cw"></i> Resend email
+                  </button>
+                  <p id="reg-resend-status" class="text-sm" style="margin-top:0.5rem; display:none;"></p>
+                  <button type="button" class="btn btn-primary w-full" id="reg-go-login-btn" style="margin-top:1.5rem;">
+                    Back to Login
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <script type="module" src="/src/app.ts"></script>
+  </body>
+</html>
