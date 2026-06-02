@@ -2404,3 +2404,227 @@ input[type="url"]:focus {
 }
 .buy-success-icon i { width: 32px; height: 32px; }
 .buy-success h3 { font-size: 1.3rem; font-weight: 700; }
+
+/* =============================================
+   NOTIFICATIONS / MESSAGES
+   ============================================= */
+
+/* Sidebar badge */
+.tab-btn {
+  position: relative;
+}
+
+.notif-badge {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: var(--danger-color);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+/* Notifications page header */
+.notif-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: var(--radius-lg);
+  margin-bottom: 1.5rem;
+}
+
+.notif-page-header-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.notif-page-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--emerald-400), var(--emerald-600));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+.notif-page-icon i { width: 24px; height: 24px; }
+
+/* List card */
+.notif-list-card {
+  padding: 1.25rem 1.5rem;
+  border-radius: var(--radius-lg);
+}
+
+/* Section label */
+.notif-section-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+.notif-section-label i { width: 14px; height: 14px; }
+
+/* Individual notification row */
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  transition: var(--transition);
+  cursor: default;
+  margin-bottom: 0.5rem;
+}
+.notif-item:hover {
+  background: rgba(100, 116, 139, 0.05);
+  border-color: var(--slate-200);
+}
+[data-theme="dark"] .notif-item:hover { border-color: var(--slate-700); }
+
+.notif-item-unread {
+  background: rgba(16, 185, 129, 0.04);
+  border-color: rgba(16, 185, 129, 0.2) !important;
+  cursor: pointer;
+}
+.notif-item-unread:hover {
+  background: rgba(16, 185, 129, 0.08);
+}
+
+/* Order item — left accent */
+.notif-item-order {
+  border-left: 3px solid var(--emerald-400);
+}
+
+/* Icon column */
+.notif-item-icon {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+.notif-icon-order {
+  background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05));
+  color: var(--emerald-500);
+}
+.notif-icon-msg {
+  background: rgba(100, 116, 139, 0.1);
+  color: var(--text-muted);
+}
+.notif-item-icon i { width: 20px; height: 20px; }
+
+.notif-prod-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  display: block;
+}
+
+.notif-unread-dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--emerald-500);
+  border: 2px solid var(--surface-color);
+}
+
+/* Body column */
+.notif-item-body { flex: 1; min-width: 0; }
+
+.notif-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+
+.notif-item-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.notif-item-sub {
+  margin: 0 0 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notif-item-time {
+  margin: 0;
+  opacity: 0.7;
+}
+
+/* Order status pill */
+.notif-order-status {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+.notif-status-pending   { background: rgba(234,179,8,0.12);  color: #a16207; border: 1px solid rgba(234,179,8,0.3); }
+.notif-status-confirmed { background: rgba(59,130,246,0.12); color: #1d4ed8; border: 1px solid rgba(59,130,246,0.3); }
+.notif-status-shipped   { background: rgba(139,92,246,0.12); color: #6d28d9; border: 1px solid rgba(139,92,246,0.3); }
+.notif-status-delivered { background: rgba(16,185,129,0.12); color: #065f46; border: 1px solid rgba(16,185,129,0.3); }
+.notif-status-cancelled { background: rgba(239,68,68,0.08);  color: #991b1b; border: 1px solid rgba(239,68,68,0.2); }
+
+[data-theme="dark"] .notif-status-pending   { color: #fde68a; }
+[data-theme="dark"] .notif-status-confirmed { color: #93c5fd; }
+[data-theme="dark"] .notif-status-shipped   { color: #c4b5fd; }
+[data-theme="dark"] .notif-status-delivered { color: #6ee7b7; }
+[data-theme="dark"] .notif-status-cancelled { color: #fca5a5; }
+
+/* Empty state */
+.notif-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 3rem 1rem;
+  gap: 0.5rem;
+}
+.notif-empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(100,116,139,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+.notif-empty-icon i { width: 26px; height: 26px; }
+.notif-empty h3 { font-size: 1rem; font-weight: 600; }

@@ -12,28 +12,34 @@ export async function initDashboard() {
     return;
   }
 
+  const userId = session.user.id;
+
   // Setup Sidebar Logout
   document.getElementById('btn-logout')?.addEventListener('click', async () => {
     await supabase.auth.signOut();
   });
 
+  // Load unread count into sidebar badge
+  await refreshNotifBadge(userId);
+
   // Setup Tabs
   document.querySelectorAll('.tab-btn').forEach(btn => {
-    if(btn.id === 'btn-logout') return;
+    if (btn.id === 'btn-logout') return;
     btn.addEventListener('click', (e) => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       const target = e.currentTarget as HTMLButtonElement;
       target.classList.add('active');
       const tab = target.dataset.tab;
-      
-      if (tab === 'profile') loadProfileView(container, session.user.id);
-      if (tab === 'products') loadProductsView(container, session.user.id);
-      if (tab === 'ads') loadAdsView(container, session.user.id);
+
+      if (tab === 'profile')        loadProfileView(container, userId);
+      if (tab === 'products')       loadProductsView(container, userId);
+      if (tab === 'ads')            loadAdsView(container, userId);
+      if (tab === 'notifications')  loadNotificationsView(container, userId);
     });
   });
 
-  // Fetch and setup Profile view by default
-  await loadProfileView(container, session.user.id);
+  // Default tab
+  await loadProfileView(container, userId);
 }
 
 
@@ -1047,6 +1053,209 @@ async function renderAdsList(userId: string, container: HTMLElement) {
       } else {
         await renderAdsList(userId, container);
       }
+    });
+  });
+}
+
+// =============================================
+// NOTIFICATIONS VIEW
+// =============================================
+
+async function refreshNotifBadge(userId: string) {
+  const badge = document.getElementById('sidebar-notif-badge');
+  if (!badge) return;
+
+  const { count } = await supabase
+    .from('messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('recipient_id', userId)
+    .eq('is_read', false);
+
+  if (count && count > 0) {
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+async function loadNotificationsView(container: HTMLElement, userId: string) {
+  container.innerHTML = `
+    <div class="notif-page-header glass">
+      <div class="notif-page-header-info">
+        <div class="notif-page-icon"><i data-lucide="bell"></i></div>
+        <div>
+          <h2>Notifications</h2>
+          <p class="text-muted text-sm">Order alerts and messages from buyers and sellers.</p>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="btn-mark-all-read">
+        <i data-lucide="check-check"></i> Mark all read
+      </button>
+    </div>
+
+    <div class="glass notif-list-card">
+      <div id="notif-list-container">
+        <div class="skeleton" style="height:72px; border-radius:var(--radius-md); margin-bottom:0.75rem;"></div>
+        <div class="skeleton" style="height:72px; border-radius:var(--radius-md); margin-bottom:0.75rem;"></div>
+        <div class="skeleton" style="height:72px; border-radius:var(--radius-md);"></div>
+      </div>
+    </div>
+  `;
+
+  if ((window as any).lucide) (window as any).lucide.createIcons();
+
+  // Mark all read button
+  document.getElementById('btn-mark-all-read')?.addEventListener('click', async () => {
+    await supabase
+      .from('messages')
+      .update({ is_read: true })
+      .eq('recipient_id', userId)
+      .eq('is_read', false);
+    await renderNotifList(userId);
+    await refreshNotifBadge(userId);
+  });
+
+  await renderNotifList(userId);
+}
+
+async function renderNotifList(userId: string) {
+  const listEl = document.getElementById('notif-list-container');
+  if (!listEl) return;
+
+  // Fetch all messages where user is recipient, newest first
+  const { data, error } = await supabase
+    .from('messages')
+    .select(`
+      id, body, is_system, is_read, created_at, product_id,
+      sender_id,
+      products (name, image_url)
+    `)
+    .eq('recipient_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) {
+    listEl.innerHTML = `<p class="text-danger" style="padding:1rem;">Failed to load notifications: ${error.message}</p>`;
+    return;
+  }
+
+  // Also fetch orders placed against seller's products
+  const { data: orders } = await supabase
+    .from('orders')
+    .select(`
+      id, quantity, unit_price, total_price, status, created_at, note,
+      products (name, image_url),
+      buyer:buyer_id ( email )
+    `)
+    .eq('seller_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  const messages = (data || []) as any[];
+  const myOrders = (orders || []) as any[];
+
+  if (messages.length === 0 && myOrders.length === 0) {
+    listEl.innerHTML = `
+      <div class="notif-empty">
+        <div class="notif-empty-icon"><i data-lucide="bell-off"></i></div>
+        <h3>No notifications yet</h3>
+        <p class="text-muted text-sm">You'll be notified here when buyers place orders or send messages.</p>
+      </div>`;
+    if ((window as any).lucide) (window as any).lucide.createIcons();
+    return;
+  }
+
+  // ── Render orders received (for sellers) ─────────────────
+  const orderItems = myOrders.map(o => {
+    const date      = new Date(o.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    const time      = new Date(o.created_at).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
+    const total     = Number(o.total_price).toLocaleString('en-PH', { minimumFractionDigits: 2 });
+    const prodName  = o.products?.name || 'Unknown product';
+    const prodImg   = o.products?.image_url;
+    const buyer     = (o.buyer as any)?.email || 'A buyer';
+    const statusCls = {
+      pending:   'notif-status-pending',
+      confirmed: 'notif-status-confirmed',
+      shipped:   'notif-status-shipped',
+      delivered: 'notif-status-delivered',
+      cancelled: 'notif-status-cancelled',
+    }[o.status as string] ?? 'notif-status-pending';
+
+    return `
+      <div class="notif-item notif-item-order">
+        <div class="notif-item-icon notif-icon-order">
+          ${prodImg
+            ? `<img src="${prodImg}" alt="${prodName}" class="notif-prod-thumb" />`
+            : `<i data-lucide="shopping-bag"></i>`}
+        </div>
+        <div class="notif-item-body">
+          <div class="notif-item-header">
+            <p class="notif-item-title">
+              <strong>${buyer}</strong> ordered <strong>${o.quantity}× ${prodName}</strong>
+            </p>
+            <span class="notif-order-status ${statusCls}">${o.status}</span>
+          </div>
+          <p class="notif-item-sub text-muted text-sm">
+            Total: ₱${total}${o.note ? ` · "${o.note}"` : ''}
+          </p>
+          <p class="notif-item-time text-sm text-muted">${date} at ${time}</p>
+        </div>
+      </div>`;
+  }).join('');
+
+  // ── Render messages received ──────────────────────────────
+  const messageItems = messages.map(m => {
+    const date      = new Date(m.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    const time      = new Date(m.created_at).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
+    const prodName  = m.products?.name;
+    const prodImg   = m.products?.image_url;
+    const unreadCls = m.is_read ? '' : 'notif-item-unread';
+
+    return `
+      <div class="notif-item ${unreadCls}" data-msg-id="${m.id}">
+        <div class="notif-item-icon notif-icon-msg">
+          ${prodImg
+            ? `<img src="${prodImg}" alt="${prodName}" class="notif-prod-thumb" />`
+            : `<i data-lucide="${m.is_system ? 'package-check' : 'message-circle'}"></i>`}
+          ${!m.is_read ? '<span class="notif-unread-dot"></span>' : ''}
+        </div>
+        <div class="notif-item-body">
+          <div class="notif-item-header">
+            <p class="notif-item-title">${m.is_system ? '🛒 Order notification' : '💬 New message'}${prodName ? ` · ${prodName}` : ''}</p>
+          </div>
+          <p class="notif-item-sub text-muted text-sm">${m.body.substring(0, 120)}${m.body.length > 120 ? '…' : ''}</p>
+          <p class="notif-item-time text-sm text-muted">${date} at ${time}</p>
+        </div>
+      </div>`;
+  }).join('');
+
+  listEl.innerHTML = `
+    ${myOrders.length > 0 ? `
+      <div class="notif-section-label text-sm">
+        <i data-lucide="shopping-bag"></i> Orders Received (${myOrders.length})
+      </div>
+      ${orderItems}
+    ` : ''}
+    ${messages.length > 0 ? `
+      <div class="notif-section-label text-sm" style="margin-top:${myOrders.length > 0 ? '1.5rem' : '0'};">
+        <i data-lucide="message-circle"></i> Messages (${messages.length})
+      </div>
+      ${messageItems}
+    ` : ''}
+  `;
+
+  if ((window as any).lucide) (window as any).lucide.createIcons();
+
+  // Mark individual message as read on click
+  listEl.querySelectorAll('.notif-item[data-msg-id]').forEach(item => {
+    item.addEventListener('click', async () => {
+      const msgId = (item as HTMLElement).dataset.msgId;
+      if (!msgId || !item.classList.contains('notif-item-unread')) return;
+      item.classList.remove('notif-item-unread');
+      item.querySelector('.notif-unread-dot')?.remove();
+      await supabase.from('messages').update({ is_read: true }).eq('id', msgId);
+      await refreshNotifBadge(userId);
     });
   });
 }
