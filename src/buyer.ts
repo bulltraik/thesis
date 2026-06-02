@@ -2,18 +2,35 @@ import { supabase } from './supabaseClient';
 import type { Profile, CartItem, Order } from './types';
 
 // ── Cart item count badge ─────────────────────────────────────
-async function refreshCartBadge(userId: string) {
+export async function refreshCartBadge(userId: string) {
   const badge = document.getElementById('cart-badge');
-  if (!badge) return;
+  const navBadge = document.getElementById('nav-cart-badge');
+  
+  if (!badge && !navBadge) return;
+
   const { count } = await supabase
     .from('cart_items')
     .select('id', { count: 'exact', head: true })
     .eq('buyer_id', userId);
-  if (count && count > 0) {
-    badge.textContent = count > 99 ? '99+' : String(count);
-    badge.classList.remove('hidden');
-  } else {
-    badge.classList.add('hidden');
+
+  const countStr = count && count > 0 ? (count > 99 ? '99+' : String(count)) : '';
+
+  if (badge) {
+    if (countStr) {
+      badge.textContent = countStr;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+
+  if (navBadge) {
+    if (countStr) {
+      navBadge.textContent = countStr;
+      navBadge.classList.remove('hidden');
+    } else {
+      navBadge.classList.add('hidden');
+    }
   }
 }
 
@@ -149,7 +166,7 @@ async function loadBuyerCart(container: HTMLElement, userId: string) {
   container.innerHTML = `
     <div class="prod-page-header glass">
       <div class="prod-page-header-info">
-        <div class="prod-page-icon"><i data-lucide="shopping-cart"></i></div>
+        <div class="prod-page-icon"><i data-lucide="shopping-basket"></i></div>
         <div>
           <h2>My Cart</h2>
           <p class="text-muted text-sm">Items you saved for later. Buy them when ready.</p>
@@ -176,7 +193,7 @@ async function renderCartItems(userId: string, container: HTMLElement) {
     .select(`
       *,
       products (
-        id, name, description, price, stock, image_url,
+        id, name, description, price, stock, image_url, profile_id,
         profiles!products_profile_id_fkey (business_name)
       )
     `)
@@ -193,7 +210,7 @@ async function renderCartItems(userId: string, container: HTMLElement) {
   if (items.length === 0) {
     listEl.innerHTML = `
       <div class="notif-empty">
-        <div class="notif-empty-icon"><i data-lucide="shopping-cart"></i></div>
+        <div class="notif-empty-icon"><i data-lucide="shopping-basket"></i></div>
         <h3>Cart is empty</h3>
         <p class="text-muted text-sm">Browse products and add items to your cart.</p>
       </div>`;
@@ -319,9 +336,6 @@ async function renderCartItems(userId: string, container: HTMLElement) {
 
       if (orderErr) { allOk = false; continue; }
 
-      // Deduct stock
-      await supabase.from('products').update({ stock: p.stock - item.quantity }).eq('id', p.id);
-
       // Send message to seller
       const total = (item.quantity * Number(p.price)).toLocaleString('en-PH', { minimumFractionDigits: 2 });
       const { data: { session } } = await supabase.auth.getSession();
@@ -380,8 +394,8 @@ async function loadBuyerOrders(container: HTMLElement, userId: string) {
     .from('orders')
     .select(`
       *,
-      products (name, image_url),
-      seller:seller_id ( business_name, contact_email )
+      products!product_id (name, image_url),
+      seller:profiles!seller_id ( business_name, contact_email )
     `)
     .eq('buyer_id', userId)
     .order('created_at', { ascending: false });
@@ -466,26 +480,26 @@ async function loadBuyerOrders(container: HTMLElement, userId: string) {
 
 // ── Add to cart (called from product cards) ───────────────────
 export async function addToCart(productId: string, userId: string): Promise<'added' | 'updated' | 'error'> {
-  // Check if already in cart
-  const { data: existing } = await supabase
-    .from('cart_items')
-    .select('id, quantity')
-    .eq('buyer_id', userId)
-    .eq('product_id', productId)
-    .single();
+  console.log('Optimized adding to cart:', { productId, userId });
+  
+  // Call the atomic database function
+  const { data, error } = await supabase.rpc('add_to_cart', {
+    p_product_id: productId,
+    p_buyer_id:   userId
+  });
 
-  if (existing) {
-    const { error } = await supabase
-      .from('cart_items')
-      .update({ quantity: existing.quantity + 1 })
-      .eq('id', existing.id);
-    return error ? 'error' : 'updated';
+  if (error) {
+    console.error('RPC Add to cart error:', error);
+    alert('Error adding to cart: ' + error.message);
+    return 'error';
   }
 
-  const { error } = await supabase.from('cart_items').insert([{
-    buyer_id:   userId,
-    product_id: productId,
-    quantity:   1,
-  }]);
-  return error ? 'error' : 'added';
+  if (data && data.startsWith('error:')) {
+    console.error('Database function error:', data);
+    alert('Database error: ' + data);
+    return 'error';
+  }
+
+  console.log('Cart RPC response:', data);
+  return data === 'ok' ? 'added' : 'error';
 }

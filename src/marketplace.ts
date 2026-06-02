@@ -1,7 +1,7 @@
 import { supabase } from './supabaseClient';
 import type { Product, SellerAd } from './types';
 import { openBuyModal } from './buy';
-import { addToCart } from './buyer';
+import { addToCart, refreshCartBadge } from './buyer';
 
 let carouselInterval: any = null;
 
@@ -130,7 +130,7 @@ function renderProducts(container: HTMLElement, products: Product[]) {
               <i data-lucide="shopping-cart"></i> Buy Now
             </button>
             <button class="btn btn-ghost btn-add-to-cart" data-product-id="${product.id}" title="Add to Cart">
-              <i data-lucide="bookmark-plus"></i>
+              <i data-lucide="shopping-basket"></i>
             </button>
           </div>`;
       } else {
@@ -174,19 +174,38 @@ function renderProducts(container: HTMLElement, products: Product[]) {
     // Wire Add to Cart buttons
     container.querySelectorAll('.btn-add-to-cart').forEach(btn => {
       btn.addEventListener('click', async (e) => {
-        const productId = (e.currentTarget as HTMLElement).dataset.productId;
-        if (!productId) return;
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
         const b = e.currentTarget as HTMLButtonElement;
+        const productId = b.dataset.productId;
+        if (!productId) return;
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          document.getElementById('nav-login')?.click();
+          return;
+        }
+
         b.disabled = true;
+        b.innerHTML = '<i data-lucide="loader" class="spin"></i>';
+        if ((window as any).lucide) (window as any).lucide.createIcons();
+
         const result = await addToCart(productId, session.user.id);
         b.disabled = false;
-        if (result !== 'error') {
+
+        if (result === 'added' || result === 'updated') {
+          await refreshCartBadge(session.user.id);
+          b.classList.add('btn-success-temporary');
           b.innerHTML = '<i data-lucide="check"></i>';
           if ((window as any).lucide) (window as any).lucide.createIcons();
           setTimeout(() => {
-            b.innerHTML = '<i data-lucide="bookmark-plus"></i>';
+            b.classList.remove('btn-success-temporary');
+            b.innerHTML = '<i data-lucide="shopping-basket"></i>';
+            if ((window as any).lucide) (window as any).lucide.createIcons();
+          }, 1500);
+        } else {
+          b.innerHTML = '<i data-lucide="x-circle" class="text-danger"></i>';
+          if ((window as any).lucide) (window as any).lucide.createIcons();
+          setTimeout(() => {
+            b.innerHTML = '<i data-lucide="shopping-basket"></i>';
             if ((window as any).lucide) (window as any).lucide.createIcons();
           }, 1500);
         }

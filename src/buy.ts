@@ -219,18 +219,6 @@ async function handleSubmit(e: Event) {
     return;
   }
 
-  // ── Decrement stock (use DB value to avoid races) ─────────
-  const { error: stockErr } = await supabase
-    .from('products')
-    .update({ stock: freshProduct.stock - qty })
-    .eq('id', currentProduct.id)
-    .eq('stock', freshProduct.stock); // optimistic lock
-
-  if (stockErr) {
-    // Stock changed between check and update — still record the order but warn
-    console.warn('Stock update race:', stockErr.message);
-  }
-
   // ── Send system message to seller ────────────────────────
   const buyerName = session.user.email ?? 'A buyer';
   const total     = (qty * Number(currentProduct.price))

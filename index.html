@@ -24,6 +24,12 @@
           <button class="btn btn-ghost" id="nav-home">Home</button>
           <button class="btn btn-ghost" id="nav-shop">Shop</button>
           
+          <!-- Cart Button for Buyers -->
+          <button class="btn btn-icon hidden" id="nav-cart" title="My Cart">
+            <i data-lucide="shopping-basket"></i>
+            <span class="notif-badge hidden" id="nav-cart-badge"></span>
+          </button>
+          
           <!-- Dynamic Auth Container -->
           <div class="nav-auth-section" id="nav-auth-section">
             <!-- Default state (logged out) -->
@@ -160,7 +166,7 @@
               <i data-lucide="user"></i> My Profile
             </button>
             <button class="tab-btn" data-tab="buyer-cart">
-              <i data-lucide="shopping-cart"></i> My Cart
+              <i data-lucide="shopping-basket"></i> My Cart
               <span class="notif-badge hidden" id="cart-badge"></span>
             </button>
             <button class="tab-btn" data-tab="buyer-orders">

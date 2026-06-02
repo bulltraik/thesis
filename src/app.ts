@@ -1,17 +1,23 @@
 import { supabase } from './supabaseClient';
 import { initMarketplace } from './marketplace';
 import { initDashboard } from './dashboard';
-import { initBuyerPortal } from './buyer';
+import { initBuyerPortal, refreshCartBadge } from './buyer';
 import { initAuth } from './auth';
 import { initShop } from './shop';
 
 // ── Global session state ──────────────────────────────────────
 export let currentSession: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session'] = null;
 
+// Navbar Elements
+const navCart = document.getElementById('nav-cart');
+
 // ── Route logged-in user to correct portal by role ────────────
 async function routeByRole() {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return;
+  if (!session) {
+    navCart?.classList.add('hidden');
+    return;
+  }
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -21,10 +27,13 @@ async function routeByRole() {
 
   if (profile?.role === 'buyer') {
     switchView('view-buyer-portal');
-    initBuyerPortal();
+    await initBuyerPortal();
+    navCart?.classList.remove('hidden');
+    await refreshCartBadge(session.user.id);
   } else {
     switchView('view-dashboard');
-    initDashboard();
+    await initDashboard();
+    navCart?.classList.add('hidden');
   }
 }
 
@@ -66,14 +75,32 @@ function switchView(viewId: string) {
   }
 }
 
-navHome?.addEventListener('click', () => {
+navHome?.addEventListener('click', async () => {
   switchView('view-marketplace');
-  initMarketplace();
+  await initMarketplace();
 });
 
-navShop?.addEventListener('click', () => {
+navShop?.addEventListener('click', async () => {
   switchView('view-shop');
-  initShop();
+  await initShop();
+});
+
+navCart?.addEventListener('click', async () => {
+  console.log('Nav Cart clicked');
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  
+  switchView('view-buyer-portal');
+  await initBuyerPortal();
+  
+  console.log('Switching to cart tab');
+  // Specific tab click
+  const cartTabBtn = document.querySelector('.sidebar .tab-btn[data-tab="buyer-cart"]') as HTMLButtonElement;
+  if (cartTabBtn) {
+    cartTabBtn.click();
+  } else {
+    console.warn('Cart tab button not found');
+  }
 });
 
 navLogin?.addEventListener('click', () => {
@@ -125,9 +152,30 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   if (session) {
     navLogin?.classList.add('hidden');
     navProfileDropdown?.classList.remove('hidden');
+    
+    // Check role for nav-cart
+    supabase.from('profiles').select('role').eq('id', session.user.id).single()
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Error fetching role for nav-cart:', error);
+          navCart?.classList.add('hidden');
+          return;
+        }
+        if (data?.role === 'buyer') {
+          navCart?.classList.remove('hidden');
+          refreshCartBadge(session.user.id);
+        } else {
+          navCart?.classList.add('hidden');
+        }
+      })
+      .catch(err => {
+        console.error('Exception in role check:', err);
+        navCart?.classList.add('hidden');
+      });
   } else {
     navLogin?.classList.remove('hidden');
     navProfileDropdown?.classList.add('hidden');
+    navCart?.classList.add('hidden');
   }
   
   if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
@@ -148,8 +196,29 @@ supabase.auth.getSession().then(({ data: { session } }) => {
   if (session) {
     navLogin?.classList.add('hidden');
     navProfileDropdown?.classList.remove('hidden');
+    
+    // Check role for nav-cart
+    supabase.from('profiles').select('role').eq('id', session.user.id).single()
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Error fetching role for nav-cart:', error);
+          navCart?.classList.add('hidden');
+          return;
+        }
+        if (data?.role === 'buyer') {
+          navCart?.classList.remove('hidden');
+          refreshCartBadge(session.user.id);
+        } else {
+          navCart?.classList.add('hidden');
+        }
+      })
+      .catch(err => {
+        console.error('Exception in role check:', err);
+        navCart?.classList.add('hidden');
+      });
   } else {
     navLogin?.classList.remove('hidden');
     navProfileDropdown?.classList.add('hidden');
+    navCart?.classList.add('hidden');
   }
 });

@@ -1122,8 +1122,9 @@ async function renderSellerOrders(userId: string, container: HTMLElement) {
     .from('orders')
     .select(`
       *,
-      products (name, image_url, price),
-      buyer:buyer_id ( email )
+      products!product_id (id, name, image_url, price, stock),
+      seller_profile:profiles!seller_id ( business_name ),
+      buyer_profile:profiles!buyer_id ( business_name, contact_email )
     `)
     .eq('seller_id', userId)
     .order('created_at', { ascending: false });
@@ -1157,7 +1158,7 @@ async function renderSellerOrders(userId: string, container: HTMLElement) {
   listEl.innerHTML = orders.map(o => {
     const prodName  = o.products?.name || 'Unknown';
     const prodImg   = o.products?.image_url;
-    const buyerEmail = o.buyer?.email || 'Unknown buyer';
+    const buyerName = o.buyer_profile?.business_name || o.buyer_profile?.contact_email || 'A buyer';
     const total     = Number(o.total_price).toLocaleString('en-PH', { minimumFractionDigits: 2 });
     const date      = new Date(o.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
     const color     = statusColors[o.status] || '#64748b';
@@ -1178,7 +1179,7 @@ async function renderSellerOrders(userId: string, container: HTMLElement) {
             </span>
           </div>
           <p class="text-sm text-muted">
-            <strong>${buyerEmail}</strong> · ${o.quantity} unit${o.quantity > 1 ? 's' : ''} · ₱${total}
+            <strong>${buyerName}</strong> · ${o.quantity} unit${o.quantity > 1 ? 's' : ''} · ₱${total}
           </p>
           ${o.note ? `<p class="text-sm text-muted" style="font-style:italic;">"${o.note}"</p>` : ''}
           ${o.delivery_date ? `<p class="text-sm" style="color:var(--emerald-500);">📅 Delivery: ${new Date(o.delivery_date).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}</p>` : ''}
@@ -1217,6 +1218,35 @@ async function renderSellerOrders(userId: string, container: HTMLElement) {
   listEl.querySelectorAll('.btn-confirm-order').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = (btn as HTMLElement).dataset.id!;
+      const order = orders.find(o => o.id === id);
+      if (!order) return;
+
+      const product = order.products;
+      if (!product) {
+        alert("Product info missing.");
+        return;
+      }
+
+      // Check current stock from DB to be safe and avoid races
+      const { data: freshProd } = await supabase.from('products').select('stock').eq('id', product.id).single();
+      const currentStock = freshProd?.stock ?? 0;
+
+      if (currentStock < order.quantity) {
+        alert(`Insufficient stock! Current: ${currentStock}, Requested: ${order.quantity}.\nYou might want to cancel this order.`);
+        return;
+      }
+
+      // Deduct stock
+      const { error: stockErr } = await supabase
+        .from('products')
+        .update({ stock: currentStock - order.quantity })
+        .eq('id', product.id);
+
+      if (stockErr) {
+        alert("Failed to update stock: " + stockErr.message);
+        return;
+      }
+
       await supabase.from('orders').update({ status: 'confirmed' }).eq('id', id);
       await renderSellerOrders(userId, container);
       await refreshOrdersBadge(userId);
@@ -1251,7 +1281,22 @@ async function renderSellerOrders(userId: string, container: HTMLElement) {
   listEl.querySelectorAll('.btn-cancel-order').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = (btn as HTMLElement).dataset.id!;
+      const order = orders.find(o => o.id === id);
+      if (!order) return;
+
       if (!confirm('Cancel this order? The buyer will be notified.')) return;
+
+      // If the order was confirmed/shipped/delivered, we should probably restore the stock
+      // since we deducted it during confirmation.
+      if (['confirmed', 'shipped', 'delivered'].includes(order.status)) {
+        const product = order.products;
+        if (product) {
+          const { data: freshProd } = await supabase.from('products').select('stock').eq('id', product.id).single();
+          const currentStock = freshProd?.stock ?? 0;
+          await supabase.from('products').update({ stock: currentStock + order.quantity }).eq('id', product.id);
+        }
+      }
+
       await supabase.from('orders').update({ status: 'cancelled' }).eq('id', id);
       await renderSellerOrders(userId, container);
       await refreshOrdersBadge(userId);
