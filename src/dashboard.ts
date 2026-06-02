@@ -731,10 +731,6 @@ async function renderProductsList(userId: string, container: HTMLElement) {
             <button class="btn btn-ghost btn-sm text-danger btn-delete-product" data-id="${p.id}" title="Delete product">
               <i data-lucide="trash-2"></i>
             </button>
-          </div>on>
-            <button class="btn btn-ghost btn-sm text-danger btn-delete-product" data-id="${p.id}" title="Delete product">
-              <i data-lucide="trash-2"></i>
-            </button>
           </div>
         </div>
       `).join('')}
