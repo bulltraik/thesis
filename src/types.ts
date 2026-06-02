@@ -45,8 +45,18 @@ export interface Order {
   total_price: number;
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
   note: string | null;
+  delivery_date: string | null;
   created_at: string;
   updated_at: string;
-  products?: Product;   // When joined
-  profiles?: Profile;   // Seller profile when joined
+  products?: Product;
+  profiles?: Profile;
+}
+
+export interface CartItem {
+  id: string;
+  buyer_id: string;
+  product_id: string;
+  quantity: number;
+  added_at: string;
+  products?: Product & { profiles?: Profile };
 }

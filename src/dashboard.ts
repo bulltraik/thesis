@@ -1,28 +1,22 @@
 import { supabase } from './supabaseClient';
-import type { Profile, Product, SellerAd } from './types';
+import type { Profile, Product, SellerAd, Order } from './types';
 
 export async function initDashboard() {
   const container = document.getElementById('dashboard-main');
   if (!container) return;
 
   const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
-    console.warn("Dashboard accessed without active session.");
-    return;
-  }
+  if (!session) { console.warn("Dashboard accessed without session."); return; }
 
   const userId = session.user.id;
 
-  // Setup Sidebar Logout
   document.getElementById('btn-logout')?.addEventListener('click', async () => {
     await supabase.auth.signOut();
   });
 
-  // Load unread count into sidebar badge
   await refreshNotifBadge(userId);
+  await refreshOrdersBadge(userId);
 
-  // Setup Tabs
   document.querySelectorAll('.tab-btn').forEach(btn => {
     if (btn.id === 'btn-logout') return;
     btn.addEventListener('click', (e) => {
@@ -33,12 +27,12 @@ export async function initDashboard() {
 
       if (tab === 'profile')        loadProfileView(container, userId);
       if (tab === 'products')       loadProductsView(container, userId);
+      if (tab === 'orders')         loadSellerOrdersView(container, userId);
       if (tab === 'ads')            loadAdsView(container, userId);
       if (tab === 'notifications')  loadNotificationsView(container, userId);
     });
   });
 
-  // Default tab
   await loadProfileView(container, userId);
 }
 
@@ -1072,6 +1066,196 @@ function openAddStockModal(productId: string, productName: string, currentStock:
       closeModal();
       await renderProductsList(userId, container);
     }
+  });
+}
+
+// =============================================
+// SELLER PRODUCT ORDERS VIEW
+// =============================================
+
+async function refreshOrdersBadge(userId: string) {
+  const badge = document.getElementById('orders-badge');
+  if (!badge) return;
+  const { count } = await supabase
+    .from('orders')
+    .select('id', { count: 'exact', head: true })
+    .eq('seller_id', userId)
+    .eq('status', 'pending');
+  if (count && count > 0) {
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+async function loadSellerOrdersView(container: HTMLElement, userId: string) {
+  container.innerHTML = `
+    <div class="prod-page-header glass">
+      <div class="prod-page-header-info">
+        <div class="prod-page-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+          <i data-lucide="clipboard-list"></i>
+        </div>
+        <div>
+          <h2>Product Orders</h2>
+          <p class="text-muted text-sm">Review, confirm and schedule delivery for buyer orders.</p>
+        </div>
+      </div>
+    </div>
+    <div class="glass" style="padding:1.5rem; border-radius:var(--radius-lg);">
+      <div id="seller-orders-list">
+        <div class="skeleton" style="height:90px;border-radius:var(--radius-md);margin-bottom:.75rem;"></div>
+        <div class="skeleton" style="height:90px;border-radius:var(--radius-md);margin-bottom:.75rem;"></div>
+        <div class="skeleton" style="height:90px;border-radius:var(--radius-md);"></div>
+      </div>
+    </div>
+  `;
+  if ((window as any).lucide) (window as any).lucide.createIcons();
+  await renderSellerOrders(userId, container);
+}
+
+async function renderSellerOrders(userId: string, container: HTMLElement) {
+  const listEl = document.getElementById('seller-orders-list');
+  if (!listEl) return;
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      products (name, image_url, price),
+      buyer:buyer_id ( email )
+    `)
+    .eq('seller_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    listEl.innerHTML = `<p class="text-danger" style="padding:1rem;">Failed to load orders: ${error.message}</p>`;
+    return;
+  }
+
+  const orders = (data || []) as any[];
+
+  if (orders.length === 0) {
+    listEl.innerHTML = `
+      <div class="notif-empty">
+        <div class="notif-empty-icon"><i data-lucide="package-open"></i></div>
+        <h3>No orders yet</h3>
+        <p class="text-muted text-sm">Orders from buyers will appear here.</p>
+      </div>`;
+    if ((window as any).lucide) (window as any).lucide.createIcons();
+    return;
+  }
+
+  const statusColors: Record<string, string> = {
+    pending:   '#f59e0b',
+    confirmed: '#3b82f6',
+    shipped:   '#8b5cf6',
+    delivered: '#10b981',
+    cancelled: '#ef4444',
+  };
+
+  listEl.innerHTML = orders.map(o => {
+    const prodName  = o.products?.name || 'Unknown';
+    const prodImg   = o.products?.image_url;
+    const buyerEmail = o.buyer?.email || 'Unknown buyer';
+    const total     = Number(o.total_price).toLocaleString('en-PH', { minimumFractionDigits: 2 });
+    const date      = new Date(o.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    const color     = statusColors[o.status] || '#64748b';
+    const canAct    = o.status === 'pending' || o.status === 'confirmed' || o.status === 'shipped';
+
+    return `
+      <div class="seller-order-item" data-order-id="${o.id}">
+        <div class="seller-order-thumb">
+          ${prodImg
+            ? `<img src="${prodImg}" alt="${prodName}" />`
+            : `<div class="seller-order-thumb-placeholder"><i data-lucide="package"></i></div>`}
+        </div>
+        <div class="seller-order-info">
+          <div class="seller-order-header">
+            <p class="seller-order-product">${prodName}</p>
+            <span class="seller-order-status-badge" style="background:${color}20;color:${color};border:1px solid ${color}40;">
+              ${o.status}
+            </span>
+          </div>
+          <p class="text-sm text-muted">
+            <strong>${buyerEmail}</strong> · ${o.quantity} unit${o.quantity > 1 ? 's' : ''} · ₱${total}
+          </p>
+          ${o.note ? `<p class="text-sm text-muted" style="font-style:italic;">"${o.note}"</p>` : ''}
+          ${o.delivery_date ? `<p class="text-sm" style="color:var(--emerald-500);">📅 Delivery: ${new Date(o.delivery_date).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}</p>` : ''}
+          <p class="text-sm text-muted">Ordered ${date}</p>
+        </div>
+        ${canAct ? `
+        <div class="seller-order-actions">
+          ${o.status === 'pending' ? `
+            <button class="btn btn-primary btn-sm btn-confirm-order" data-id="${o.id}">
+              <i data-lucide="check"></i> Confirm
+            </button>` : ''}
+          ${o.status === 'confirmed' ? `
+            <div class="seller-order-delivery-wrap">
+              <input type="date" class="delivery-date-input" data-id="${o.id}"
+                value="${o.delivery_date || ''}"
+                min="${new Date().toISOString().split('T')[0]}"
+                placeholder="Set delivery date" />
+              <button class="btn btn-primary btn-sm btn-set-delivery" data-id="${o.id}">
+                <i data-lucide="calendar"></i> Set Date & Ship
+              </button>
+            </div>` : ''}
+          ${o.status === 'shipped' ? `
+            <button class="btn btn-primary btn-sm btn-mark-delivered" data-id="${o.id}" style="background:var(--emerald-500);">
+              <i data-lucide="check-check"></i> Mark Delivered
+            </button>` : ''}
+          <button class="btn btn-ghost btn-sm text-danger btn-cancel-order" data-id="${o.id}">
+            <i data-lucide="x"></i> Cancel
+          </button>
+        </div>` : ''}
+      </div>`;
+  }).join('');
+
+  if ((window as any).lucide) (window as any).lucide.createIcons();
+
+  // ── Confirm order ─────────────────────────────────────────
+  listEl.querySelectorAll('.btn-confirm-order').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = (btn as HTMLElement).dataset.id!;
+      await supabase.from('orders').update({ status: 'confirmed' }).eq('id', id);
+      await renderSellerOrders(userId, container);
+      await refreshOrdersBadge(userId);
+    });
+  });
+
+  // ── Set delivery date and ship ─────────────────────────────
+  listEl.querySelectorAll('.btn-set-delivery').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id        = (btn as HTMLElement).dataset.id!;
+      const dateInput = listEl.querySelector(`.delivery-date-input[data-id="${id}"]`) as HTMLInputElement;
+      const dateVal   = dateInput?.value;
+      if (!dateVal) {
+        alert('Please pick a delivery date first.');
+        return;
+      }
+      await supabase.from('orders').update({ status: 'shipped', delivery_date: dateVal }).eq('id', id);
+      await renderSellerOrders(userId, container);
+    });
+  });
+
+  // ── Mark delivered ────────────────────────────────────────
+  listEl.querySelectorAll('.btn-mark-delivered').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = (btn as HTMLElement).dataset.id!;
+      await supabase.from('orders').update({ status: 'delivered' }).eq('id', id);
+      await renderSellerOrders(userId, container);
+    });
+  });
+
+  // ── Cancel order ──────────────────────────────────────────
+  listEl.querySelectorAll('.btn-cancel-order').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = (btn as HTMLElement).dataset.id!;
+      if (!confirm('Cancel this order? The buyer will be notified.')) return;
+      await supabase.from('orders').update({ status: 'cancelled' }).eq('id', id);
+      await renderSellerOrders(userId, container);
+      await refreshOrdersBadge(userId);
+    });
   });
 }
 

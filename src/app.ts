@@ -1,11 +1,32 @@
 import { supabase } from './supabaseClient';
 import { initMarketplace } from './marketplace';
 import { initDashboard } from './dashboard';
+import { initBuyerPortal } from './buyer';
 import { initAuth } from './auth';
 import { initShop } from './shop';
 
-// ── Global session state (read by marketplace/shop buy buttons) ──
+// ── Global session state ──────────────────────────────────────
 export let currentSession: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session'] = null;
+
+// ── Route logged-in user to correct portal by role ────────────
+async function routeByRole() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profile?.role === 'buyer') {
+    switchView('view-buyer-portal');
+    initBuyerPortal();
+  } else {
+    switchView('view-dashboard');
+    initDashboard();
+  }
+}
 
 // Initialize Theme
 const themeToggle = document.getElementById('theme-toggle');
@@ -74,18 +95,16 @@ document.addEventListener('click', (e) => {
 });
 
 // Dropdown Menu Actions
-navDropDashboard?.addEventListener('click', (e) => {
+navDropDashboard?.addEventListener('click', async (e) => {
   e.preventDefault();
   navProfileDropdown?.classList.remove('show');
-  switchView('view-dashboard');
-  initDashboard();
+  await routeByRole();
 });
 
-navDropSettings?.addEventListener('click', (e) => {
+navDropSettings?.addEventListener('click', async (e) => {
   e.preventDefault();
   navProfileDropdown?.classList.remove('show');
-  switchView('view-dashboard');
-  initDashboard();
+  await routeByRole();
 });
 
 navDropLogout?.addEventListener('click', async (e) => {
@@ -112,15 +131,12 @@ supabase.auth.onAuthStateChange((event, session) => {
   }
   
   if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-    // If on auth page, redirect to dashboard
     if (document.querySelector('.auth-container')) {
-      switchView('view-dashboard');
-      initDashboard();
+      await routeByRole();
     } else if (document.querySelector('.dashboard-layout')) {
-      initDashboard();
+      await routeByRole();
     }
   } else if (event === 'SIGNED_OUT') {
-    // Always go back to the landing page on logout, from any page
     switchView('view-marketplace');
     initMarketplace();
   }

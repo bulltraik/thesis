@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient';
 import type { Product } from './types';
 import { openBuyModal } from './buy';
+import { addToCart } from './buyer';
 
 let allProducts: Product[] = [];
 
@@ -146,9 +147,15 @@ function renderProducts(container: HTMLElement, products: Product[]) {
       } else if (!inStock) {
         buyHtml = `<button class="btn btn-buy-disabled w-full" disabled>Out of Stock</button>`;
       } else if (loggedIn) {
-        buyHtml = `<button class="btn btn-primary btn-buy w-full" data-product-id="${product.id}">
-          <i data-lucide="shopping-cart"></i> Buy Now
-        </button>`;
+        buyHtml = `
+          <div class="product-card-btns">
+            <button class="btn btn-primary btn-buy" data-product-id="${product.id}">
+              <i data-lucide="shopping-cart"></i> Buy Now
+            </button>
+            <button class="btn btn-ghost btn-add-to-cart" data-product-id="${product.id}" title="Add to Cart">
+              <i data-lucide="bookmark-plus"></i>
+            </button>
+          </div>`;
       } else {
         buyHtml = `<button class="btn btn-ghost btn-buy-guest w-full" data-product-id="${product.id}">
           <i data-lucide="log-in"></i> Sign in to Buy
@@ -183,6 +190,27 @@ function renderProducts(container: HTMLElement, products: Product[]) {
         const productId = (e.currentTarget as HTMLElement).dataset.productId;
         const product = products.find(p => p.id === productId);
         if (product) openBuyModal(product);
+      });
+    });
+
+    container.querySelectorAll('.btn-add-to-cart').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const productId = (e.currentTarget as HTMLElement).dataset.productId;
+        if (!productId) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const b = e.currentTarget as HTMLButtonElement;
+        b.disabled = true;
+        const result = await addToCart(productId, session.user.id);
+        b.disabled = false;
+        if (result !== 'error') {
+          b.innerHTML = '<i data-lucide="check"></i>';
+          if ((window as any).lucide) (window as any).lucide.createIcons();
+          setTimeout(() => {
+            b.innerHTML = '<i data-lucide="bookmark-plus"></i>';
+            if ((window as any).lucide) (window as any).lucide.createIcons();
+          }, 1500);
+        }
       });
     });
 

@@ -151,7 +151,33 @@
       </div>
     </template>
 
-    <!-- Dashboard View -->
+    <!-- Buyer Portal View -->
+    <template id="view-buyer-portal">
+      <div class="dashboard-layout">
+        <aside class="sidebar glass">
+          <nav class="sidebar-nav">
+            <button class="tab-btn active" data-tab="buyer-profile">
+              <i data-lucide="user"></i> My Profile
+            </button>
+            <button class="tab-btn" data-tab="buyer-cart">
+              <i data-lucide="shopping-cart"></i> My Cart
+              <span class="notif-badge hidden" id="cart-badge"></span>
+            </button>
+            <button class="tab-btn" data-tab="buyer-orders">
+              <i data-lucide="package"></i> My Orders
+            </button>
+            <button class="tab-btn text-danger" id="btn-buyer-logout">
+              <i data-lucide="log-out"></i> Logout
+            </button>
+          </nav>
+        </aside>
+        <div class="dashboard-content" id="buyer-main">
+          <!-- Buyer content injected here -->
+        </div>
+      </div>
+    </template>
+
+    <!-- Dashboard View (Seller) -->
     <template id="view-dashboard">
       <div class="dashboard-layout">
         <aside class="sidebar glass">
@@ -161,6 +187,10 @@
             </button>
             <button class="tab-btn" data-tab="products">
               <i data-lucide="package"></i> My Products
+            </button>
+            <button class="tab-btn" data-tab="orders">
+              <i data-lucide="clipboard-list"></i> Product Orders
+              <span class="notif-badge hidden" id="orders-badge"></span>
             </button>
             <button class="tab-btn" data-tab="ads">
               <i data-lucide="megaphone"></i> My Ads
@@ -175,7 +205,7 @@
           </nav>
         </aside>
         <div class="dashboard-content" id="dashboard-main">
-          <!-- Auth / Profile / Products forms will be injected here -->
+          <!-- Seller content injected here -->
         </div>
       </div>
     </template>

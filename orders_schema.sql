@@ -10,11 +10,12 @@ create table public.orders (
   product_id    uuid        not null references public.products(id) on delete cascade,
   seller_id     uuid        not null references public.profiles(id) on delete cascade,
   quantity      integer     not null default 1 check (quantity > 0),
-  unit_price    numeric(10,2) not null,          -- price at time of purchase
+  unit_price    numeric(10,2) not null,
   total_price   numeric(10,2) generated always as (quantity * unit_price) stored,
   status        text        not null default 'pending'
                             check (status in ('pending', 'confirmed', 'shipped', 'delivered', 'cancelled')),
-  note          text,                            -- optional message from buyer
+  note          text,
+  delivery_date date,                              -- set by seller when shipping
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -58,3 +59,10 @@ create trigger orders_set_updated_at
 create index orders_buyer_id_idx  on public.orders(buyer_id);
 create index orders_seller_id_idx on public.orders(seller_id);
 create index orders_product_id_idx on public.orders(product_id);
+
+-- ============================================================
+-- MIGRATION — add delivery_date column to orders
+-- Run this if you already have an orders table.
+-- ============================================================
+-- alter table public.orders
+--   add column if not exists delivery_date date;
