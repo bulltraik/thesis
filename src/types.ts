@@ -34,3 +34,19 @@ export interface SellerAd {
   profiles?: Profile;   // When joined
   products?: Product[];  // Resolved from product_ids
 }
+
+export interface Order {
+  id: string;
+  buyer_id: string;
+  product_id: string;
+  seller_id: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+  products?: Product;   // When joined
+  profiles?: Profile;   // Seller profile when joined
+}

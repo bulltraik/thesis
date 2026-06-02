@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import type { Product, Profile, SellerAd } from './types';
+import { openBuyModal } from './buy';
 
 let carouselInterval: any = null;
 
@@ -83,40 +84,76 @@ function renderProducts(container: HTMLElement, products: Product[]) {
     return;
   }
 
-  container.innerHTML = products.map(product => {
-    const price    = Number(product.price).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const desc     = product.description ? product.description.substring(0, 80) + (product.description.length > 80 ? '…' : '') : '';
-    const seller   = product.profiles?.business_name || 'Unknown Seller';
-    const logoUrl  = product.profiles?.logo_url;
-    const inStock  = (product.stock ?? 0) > 0;
+  // Check session once, then render cards
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    const loggedIn = !!session;
 
-    const imgHtml = product.image_url
-      ? `<img src="${product.image_url}" alt="${product.name}" class="card-img" loading="lazy" />`
-      : `<div class="card-img-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
+    container.innerHTML = products.map(product => {
+      const price    = Number(product.price).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const desc     = product.description ? product.description.substring(0, 80) + (product.description.length > 80 ? '…' : '') : '';
+      const seller   = product.profiles?.business_name || 'Unknown Seller';
+      const logoUrl  = product.profiles?.logo_url;
+      const inStock  = (product.stock ?? 0) > 0;
 
-    const sellerLogoHtml = logoUrl
-      ? `<img src="${logoUrl}" alt="${seller}" class="product-card-seller-logo" />`
-      : `<div class="product-card-seller-logo product-card-seller-logo-placeholder">${seller.charAt(0).toUpperCase()}</div>`;
+      const imgHtml = product.image_url
+        ? `<img src="${product.image_url}" alt="${product.name}" class="card-img" loading="lazy" />`
+        : `<div class="card-img-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
 
-    return `
-      <div class="card glass product-card">
-        <div class="card-img-wrap">
-          ${imgHtml}
-          <span class="product-card-stock-badge ${inStock ? 'in-stock' : 'out-of-stock'}">
-            ${inStock ? `${product.stock} in stock` : 'Out of stock'}
-          </span>
-        </div>
-        <div class="card-body">
-          <div class="product-card-seller-row">
-            ${sellerLogoHtml}
-            <span class="product-card-seller-name text-sm text-muted">${seller}</span>
+      const sellerLogoHtml = logoUrl
+        ? `<img src="${logoUrl}" alt="${seller}" class="product-card-seller-logo" />`
+        : `<div class="product-card-seller-logo product-card-seller-logo-placeholder">${seller.charAt(0).toUpperCase()}</div>`;
+
+      // Buy button: shown when logged in and in stock.
+      // If not logged in, show a muted "Sign in to buy" prompt instead.
+      const buyHtml = inStock
+        ? loggedIn
+          ? `<button class="btn btn-primary btn-buy w-full" data-product-id="${product.id}">
+               <i data-lucide="shopping-cart"></i> Buy Now
+             </button>`
+          : `<button class="btn btn-ghost btn-buy-guest w-full" data-product-id="${product.id}">
+               <i data-lucide="log-in"></i> Sign in to Buy
+             </button>`
+        : `<button class="btn btn-buy-disabled w-full" disabled>Out of Stock</button>`;
+
+      return `
+        <div class="card glass product-card" data-product-id="${product.id}">
+          <div class="card-img-wrap">
+            ${imgHtml}
+            <span class="product-card-stock-badge ${inStock ? 'in-stock' : 'out-of-stock'}">
+              ${inStock ? `${product.stock} in stock` : 'Out of stock'}
+            </span>
           </div>
-          <h3 class="card-title">${product.name}</h3>
-          ${desc ? `<p class="text-sm text-muted product-card-desc">${desc}</p>` : ''}
-          <p class="card-price">₱${price}</p>
-        </div>
-      </div>`;
-  }).join('');
+          <div class="card-body">
+            <div class="product-card-seller-row">
+              ${sellerLogoHtml}
+              <span class="product-card-seller-name text-sm text-muted">${seller}</span>
+            </div>
+            <h3 class="card-title">${product.name}</h3>
+            ${desc ? `<p class="text-sm text-muted product-card-desc">${desc}</p>` : ''}
+            <p class="card-price">₱${price}</p>
+            ${buyHtml}
+          </div>
+        </div>`;
+    }).join('');
+
+    if ((window as any).lucide) (window as any).lucide.createIcons();
+
+    // Wire Buy Now buttons
+    container.querySelectorAll('.btn-buy').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const productId = (e.currentTarget as HTMLElement).dataset.productId;
+        const product = products.find(p => p.id === productId);
+        if (product) openBuyModal(product);
+      });
+    });
+
+    // Wire "Sign in to buy" buttons — redirect to auth view
+    container.querySelectorAll('.btn-buy-guest').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('nav-login')?.click();
+      });
+    });
+  });
 }
 
 async function initHeroAds() {

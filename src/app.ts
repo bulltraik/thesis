@@ -4,6 +4,9 @@ import { initDashboard } from './dashboard';
 import { initAuth } from './auth';
 import { initShop } from './shop';
 
+// ── Global session state (read by marketplace/shop buy buttons) ──
+export let currentSession: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session'] = null;
+
 // Initialize Theme
 const themeToggle = document.getElementById('theme-toggle');
 let isDark = localStorage.getItem('theme') === 'dark';
@@ -98,6 +101,7 @@ initMarketplace();
 // Handle auth state changes globally
 supabase.auth.onAuthStateChange((event, session) => {
   console.log('Auth event:', event);
+  currentSession = session;
   
   if (session) {
     navLogin?.classList.add('hidden');
@@ -126,6 +130,7 @@ supabase.auth.onAuthStateChange((event, session) => {
 
 // Initial auth state check for navbar
 supabase.auth.getSession().then(({ data: { session } }) => {
+  currentSession = session;
   if (session) {
     navLogin?.classList.add('hidden');
     navProfileDropdown?.classList.remove('hidden');
