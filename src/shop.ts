@@ -112,6 +112,7 @@ function renderProducts(container: HTMLElement, products: Product[]) {
 
   supabase.auth.getSession().then(({ data: { session } }) => {
     const loggedIn = !!session;
+    const currentUserId = session?.user?.id;
 
     container.innerHTML = products.map(product => {
       const price   = Number(product.price).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -119,6 +120,7 @@ function renderProducts(container: HTMLElement, products: Product[]) {
       const seller  = product.profiles?.business_name || 'Unknown Seller';
       const logoUrl = product.profiles?.logo_url;
       const inStock = (product.stock ?? 0) > 0;
+      const isOwnProduct = loggedIn && currentUserId === product.profile_id;
 
       const imgHtml = product.image_url
         ? `<img src="${product.image_url}" alt="${product.name}" class="card-img" loading="lazy" />`
@@ -128,15 +130,19 @@ function renderProducts(container: HTMLElement, products: Product[]) {
         ? `<img src="${logoUrl}" alt="${seller}" class="product-card-seller-logo" />`
         : `<div class="product-card-seller-logo product-card-seller-logo-placeholder">${seller.charAt(0).toUpperCase()}</div>`;
 
-      const buyHtml = inStock
-        ? loggedIn
-          ? `<button class="btn btn-primary btn-buy w-full" data-product-id="${product.id}">
-               <i data-lucide="shopping-cart"></i> Buy Now
-             </button>`
-          : `<button class="btn btn-ghost btn-buy-guest w-full" data-product-id="${product.id}">
-               <i data-lucide="log-in"></i> Sign in to Buy
-             </button>`
-        : `<button class="btn btn-buy-disabled w-full" disabled>Out of Stock</button>`;
+      const buyHtml = isOwnProduct
+        ? `<button class="btn btn-ghost w-full" disabled>
+             <i data-lucide="store"></i> Your Product
+           </button>`
+        : inStock
+          ? loggedIn
+            ? `<button class="btn btn-primary btn-buy w-full" data-product-id="${product.id}">
+                 <i data-lucide="shopping-cart"></i> Buy Now
+               </button>`
+            : `<button class="btn btn-ghost btn-buy-guest w-full" data-product-id="${product.id}">
+                 <i data-lucide="log-in"></i> Sign in to Buy
+               </button>`
+          : `<button class="btn btn-buy-disabled w-full" disabled>Out of Stock</button>`;
 
       return `
         <div class="card glass product-card" data-product-id="${product.id}">

@@ -725,6 +725,9 @@ async function renderProductsList(userId: string, container: HTMLElement) {
             </div>
           </div>
           <div class="prod-list-actions">
+            <button class="btn btn-ghost btn-sm btn-edit-product" data-id="${p.id}" title="Edit product">
+              <i data-lucide="pencil"></i>
+            </button>
             <button class="btn btn-ghost btn-sm text-danger btn-delete-product" data-id="${p.id}" title="Delete product">
               <i data-lucide="trash-2"></i>
             </button>
@@ -736,6 +739,20 @@ async function renderProductsList(userId: string, container: HTMLElement) {
 
   if ((window as any).lucide) (window as any).lucide.createIcons();
 
+  // Edit listeners
+  listContainer.querySelectorAll('.btn-edit-product').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const target = e.currentTarget as HTMLButtonElement;
+      const productId = target.dataset.id;
+      if (!productId) return;
+      
+      const product = products.find(p => p.id === productId);
+      if (!product) return;
+      
+      openEditProductModal(product, userId, container);
+    });
+  });
+
   // Delete listeners
   listContainer.querySelectorAll('.btn-delete-product').forEach(btn => {
     btn.addEventListener('click', async (e) => {
@@ -743,12 +760,232 @@ async function renderProductsList(userId: string, container: HTMLElement) {
       const productId = target.dataset.id;
       if (!productId) return;
 
-      if (confirm('Delete this product? This cannot be undone.')) {
-        const { error } = await supabase.from('products').delete().eq('id', productId);
-        if (error) alert('Error deleting: ' + error.message);
-        else await renderProductsList(userId, container);
+      const product = products.find(p => p.id === productId);
+      if (!product) return;
+
+      // Improved confirmation dialog
+      if (!confirm(`Delete "${product.name}"?\n\nThis will permanently remove this product from your shop and cannot be undone.`)) {
+        return;
+      }
+
+      // Show loading state on button
+      target.disabled = true;
+      const originalHtml = target.innerHTML;
+      target.innerHTML = '<i data-lucide="loader"></i>';
+      if ((window as any).lucide) (window as any).lucide.createIcons();
+
+      const { error } = await supabase.from('products').delete().eq('id', productId);
+
+      if (error) {
+        // Re-enable button and show error
+        target.disabled = false;
+        target.innerHTML = originalHtml;
+        if ((window as any).lucide) (window as any).lucide.createIcons();
+        
+        // Show inline error message
+        const itemEl = target.closest('.prod-list-item') as HTMLElement;
+        if (itemEl) {
+          const errorMsg = document.createElement('p');
+          errorMsg.className = 'text-danger text-sm';
+          errorMsg.style.marginTop = '0.5rem';
+          errorMsg.textContent = 'Failed to delete: ' + error.message;
+          itemEl.appendChild(errorMsg);
+          setTimeout(() => errorMsg.remove(), 3000);
+        }
+      } else {
+        // Success: refresh list
+        await renderProductsList(userId, container);
       }
     });
+  });
+}
+
+// ── Edit Product Modal ─────────────────────────────────────
+async function openEditProductModal(product: Product, userId: string, container: HTMLElement) {
+  // Create a temporary edit modal overlay
+  const editModalHtml = `
+    <div class="modal-overlay" id="edit-product-modal">
+      <div class="modal-card glass">
+        <div class="modal-header">
+          <h3>Edit Product</h3>
+          <button class="btn btn-icon" id="btn-close-edit-modal" aria-label="Close">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <form id="edit-product-form" class="form">
+          <input type="hidden" id="edit-prod-id" value="${product.id}" />
+
+          <div class="form-group">
+            <label for="edit-prod-name">Product Name <span class="field-required">*</span></label>
+            <input type="text" id="edit-prod-name" value="${product.name}" placeholder="e.g. Handmade Ceramic Mug" maxlength="100" required />
+          </div>
+
+          <div class="form-group">
+            <label for="edit-prod-desc">Description <span class="field-required">*</span></label>
+            <textarea id="edit-prod-desc" placeholder="Describe your product…" rows="3" maxlength="500" required>${product.description || ''}</textarea>
+          </div>
+
+          <div class="prod-form-row">
+            <div class="form-group">
+              <label for="edit-prod-price">Price (₱) <span class="field-required">*</span></label>
+              <div class="input-with-icon">
+                <i data-lucide="philippine-peso"></i>
+                <input type="number" id="edit-prod-price" value="${product.price}" step="0.01" min="0" required />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="edit-prod-stock">Stock <span class="field-required">*</span></label>
+              <div class="input-with-icon">
+                <i data-lucide="boxes"></i>
+                <input type="number" id="edit-prod-stock" value="${product.stock}" min="0" required />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Product Image <span class="text-muted text-sm">(optional)</span></label>
+            <div class="prod-img-upload-area" id="edit-prod-img-upload-area">
+              <div class="prod-img-preview" id="edit-prod-img-preview">
+                ${product.image_url
+                  ? `<img src="${product.image_url}" alt="Preview" class="prod-img-thumb" id="edit-prod-img-thumb" />`
+                  : `<div class="prod-img-placeholder" id="edit-prod-img-placeholder">
+                       <i data-lucide="image-plus"></i>
+                       <span>Click or drag to upload</span>
+                     </div>`
+                }
+              </div>
+              <label for="edit-prod-image-file" class="btn btn-ghost prod-img-upload-btn">
+                <i data-lucide="upload"></i> ${product.image_url ? 'Change Image' : 'Choose Image'}
+              </label>
+              <input type="file" id="edit-prod-image-file" accept="image/png,image/jpeg,image/webp" style="display:none;" />
+            </div>
+            <p class="text-muted text-sm" style="margin-top:0.35rem;">PNG, JPG or WEBP · Max 5 MB</p>
+            <p id="edit-prod-img-status" class="text-sm" style="margin-top:0.25rem;"></p>
+            <input type="hidden" id="edit-prod-image-url" value="${product.image_url || ''}" />
+            <input type="hidden" id="edit-prod-image-path" value="${(product as any).image_path || ''}" />
+          </div>
+
+          <p id="edit-prod-form-error" class="field-error" style="margin-bottom:0.75rem;"></p>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" id="btn-cancel-edit-product">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="edit-prod-submit-btn">
+              <i data-lucide="save"></i> Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  // Inject modal into DOM
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = editModalHtml;
+  const editModal = tempDiv.firstElementChild as HTMLElement;
+  document.body.appendChild(editModal);
+
+  if ((window as any).lucide) (window as any).lucide.createIcons();
+
+  // Show modal
+  editModal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+
+  // ── Close handlers ─────────────────────────────────────────
+  const closeEditModal = () => {
+    editModal.classList.add('hidden');
+    document.body.style.overflow = '';
+    setTimeout(() => editModal.remove(), 200);
+  };
+
+  editModal.querySelector('#btn-close-edit-modal')?.addEventListener('click', closeEditModal);
+  editModal.querySelector('#btn-cancel-edit-product')?.addEventListener('click', closeEditModal);
+  editModal.addEventListener('click', (e) => {
+    if (e.target === editModal) closeEditModal();
+  });
+
+  // ── Image upload handler ───────────────────────────────────
+  const editImgFileInput  = editModal.querySelector('#edit-prod-image-file')  as HTMLInputElement;
+  const editImgUrlHidden  = editModal.querySelector('#edit-prod-image-url')   as HTMLInputElement;
+  const editImgPathHidden = editModal.querySelector('#edit-prod-image-path')  as HTMLInputElement;
+  const editImgStatus     = editModal.querySelector('#edit-prod-img-status')  as HTMLElement;
+  const editImgPreview    = editModal.querySelector('#edit-prod-img-preview') as HTMLElement;
+  const editImgUploadArea = editModal.querySelector('#edit-prod-img-upload-area') as HTMLElement;
+
+  // Drag-and-drop
+  editImgUploadArea?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    editImgUploadArea.classList.add('drag-over');
+  });
+  editImgUploadArea?.addEventListener('dragleave', () => {
+    editImgUploadArea.classList.remove('drag-over');
+  });
+  editImgUploadArea?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    editImgUploadArea.classList.remove('drag-over');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) handleProductImageUpload(file, userId, editImgPreview, editImgUrlHidden, editImgPathHidden, editImgStatus);
+  });
+
+  editImgFileInput?.addEventListener('change', () => {
+    const file = editImgFileInput.files?.[0];
+    if (file) handleProductImageUpload(file, userId, editImgPreview, editImgUrlHidden, editImgPathHidden, editImgStatus);
+  });
+
+  // ── Form submit ────────────────────────────────────────────
+  editModal.querySelector('#edit-product-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const id        = (editModal.querySelector('#edit-prod-id')    as HTMLInputElement).value;
+    const name      = (editModal.querySelector('#edit-prod-name')  as HTMLInputElement).value.trim();
+    const desc      = (editModal.querySelector('#edit-prod-desc')  as HTMLTextAreaElement).value.trim();
+    const price     = parseFloat((editModal.querySelector('#edit-prod-price') as HTMLInputElement).value);
+    const stock     = parseInt((editModal.querySelector('#edit-prod-stock')   as HTMLInputElement).value);
+    const image_url  = editImgUrlHidden.value.trim();
+    const image_path = editImgPathHidden.value.trim();
+    const errEl     = editModal.querySelector('#edit-prod-form-error') as HTMLElement;
+    const submitBtn = editModal.querySelector('#edit-prod-submit-btn') as HTMLButtonElement;
+
+    errEl.style.display = 'none';
+
+    if (!name || !desc || isNaN(price) || isNaN(stock)) {
+      errEl.textContent = 'Please fill in all required fields.';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (price < 0) {
+      errEl.textContent = 'Price cannot be negative.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i data-lucide="loader"></i> Saving…';
+    if ((window as any).lucide) (window as any).lucide.createIcons();
+
+    const { error } = await supabase
+      .from('products')
+      .update({
+        name,
+        description: desc,
+        price,
+        stock,
+        image_url:  image_url  || null,
+        image_path: image_path || null,
+      })
+      .eq('id', id);
+
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<i data-lucide="save"></i> Save Changes';
+    if ((window as any).lucide) (window as any).lucide.createIcons();
+
+    if (error) {
+      errEl.textContent = 'Error: ' + error.message;
+      errEl.style.display = 'block';
+    } else {
+      closeEditModal();
+      await renderProductsList(userId, container);
+    }
   });
 }
 
