@@ -1543,12 +1543,7 @@ input[type="url"]:focus {
 }
 
 /* Actions column */
-.prod-list-actions {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
+.prod-list-actions { flex-shrink: 0; }
 
 /* Empty state */
 .prod-empty-state {
@@ -2633,3 +2628,40 @@ input[type="url"]:focus {
 }
 .notif-empty-icon i { width: 26px; height: 26px; }
 .notif-empty h3 { font-size: 1rem; font-weight: 600; }
+
+/* =============================================
+   SELLER ACCOUNT BADGE (product cards)
+   ============================================= */
+
+.btn-seller-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-muted);
+  background: rgba(100, 116, 139, 0.08);
+  border: 1px dashed var(--slate-300);
+  cursor: default;
+  user-select: none;
+}
+[data-theme="dark"] .btn-seller-badge { border-color: var(--slate-600); }
+.btn-seller-badge i { width: 14px; height: 14px; }
+
+/* =============================================
+   ADD STOCK BUTTON (product list)
+   ============================================= */
+
+.btn-add-stock {
+  color: var(--emerald-500);
+}
+.btn-add-stock:hover {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--emerald-600);
+}

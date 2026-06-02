@@ -85,10 +85,19 @@ function renderProducts(container: HTMLElement, products: Product[]) {
     return;
   }
 
-  // Check session once, then render cards
-  supabase.auth.getSession().then(({ data: { session } }) => {
+  // Fetch session + role in parallel then render
+  supabase.auth.getSession().then(async ({ data: { session } }) => {
     const loggedIn = !!session;
-    const currentUserId = session?.user?.id;
+    let isSeller   = false;
+
+    if (session) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+      isSeller = profile?.role === 'seller';
+    }
 
     container.innerHTML = products.map(product => {
       const price    = Number(product.price).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -96,7 +105,6 @@ function renderProducts(container: HTMLElement, products: Product[]) {
       const seller   = product.profiles?.business_name || 'Unknown Seller';
       const logoUrl  = product.profiles?.logo_url;
       const inStock  = (product.stock ?? 0) > 0;
-      const isOwnProduct = loggedIn && currentUserId === product.profile_id;
 
       const imgHtml = product.image_url
         ? `<img src="${product.image_url}" alt="${product.name}" class="card-img" loading="lazy" />`
@@ -106,24 +114,23 @@ function renderProducts(container: HTMLElement, products: Product[]) {
         ? `<img src="${logoUrl}" alt="${seller}" class="product-card-seller-logo" />`
         : `<div class="product-card-seller-logo product-card-seller-logo-placeholder">${seller.charAt(0).toUpperCase()}</div>`;
 
-      // Buy button logic:
-      // - If it's the seller's own product, show "Your Product" badge instead of buy button
-      // - If not logged in, show "Sign in to buy"
-      // - If logged in and in stock, show "Buy Now"
-      // - If out of stock, show "Out of Stock"
-      const buyHtml = isOwnProduct
-        ? `<button class="btn btn-ghost w-full" disabled>
-             <i data-lucide="store"></i> Your Product
-           </button>`
-        : inStock
-          ? loggedIn
-            ? `<button class="btn btn-primary btn-buy w-full" data-product-id="${product.id}">
-                 <i data-lucide="shopping-cart"></i> Buy Now
-               </button>`
-            : `<button class="btn btn-ghost btn-buy-guest w-full" data-product-id="${product.id}">
-                 <i data-lucide="log-in"></i> Sign in to Buy
-               </button>`
-          : `<button class="btn btn-buy-disabled w-full" disabled>Out of Stock</button>`;
+      let buyHtml: string;
+      if (isSeller) {
+        // Sellers cannot buy — show an informational badge instead
+        buyHtml = `<div class="btn-seller-badge">
+          <i data-lucide="store"></i> Seller account
+        </div>`;
+      } else if (!inStock) {
+        buyHtml = `<button class="btn btn-buy-disabled w-full" disabled>Out of Stock</button>`;
+      } else if (loggedIn) {
+        buyHtml = `<button class="btn btn-primary btn-buy w-full" data-product-id="${product.id}">
+          <i data-lucide="shopping-cart"></i> Buy Now
+        </button>`;
+      } else {
+        buyHtml = `<button class="btn btn-ghost btn-buy-guest w-full" data-product-id="${product.id}">
+          <i data-lucide="log-in"></i> Sign in to Buy
+        </button>`;
+      }
 
       return `
         <div class="card glass product-card" data-product-id="${product.id}">
@@ -148,7 +155,7 @@ function renderProducts(container: HTMLElement, products: Product[]) {
 
     if ((window as any).lucide) (window as any).lucide.createIcons();
 
-    // Wire Buy Now buttons
+    // Wire Buy Now buttons (buyers only)
     container.querySelectorAll('.btn-buy').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const productId = (e.currentTarget as HTMLElement).dataset.productId;
@@ -157,7 +164,7 @@ function renderProducts(container: HTMLElement, products: Product[]) {
       });
     });
 
-    // Wire "Sign in to buy" buttons — redirect to auth view
+    // Wire "Sign in to buy" buttons
     container.querySelectorAll('.btn-buy-guest').forEach(btn => {
       btn.addEventListener('click', () => {
         document.getElementById('nav-login')?.click();

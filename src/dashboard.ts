@@ -725,6 +725,9 @@ async function renderProductsList(userId: string, container: HTMLElement) {
             </div>
           </div>
           <div class="prod-list-actions">
+            <button class="btn btn-ghost btn-sm btn-add-stock" data-id="${p.id}" data-name="${p.name}" data-stock="${p.stock}" title="Add stock">
+              <i data-lucide="plus-circle"></i>
+            </button>
             <button class="btn btn-ghost btn-sm btn-edit-product" data-id="${p.id}" title="Edit product">
               <i data-lucide="pencil"></i>
             </button>
@@ -738,6 +741,17 @@ async function renderProductsList(userId: string, container: HTMLElement) {
   `;
 
   if ((window as any).lucide) (window as any).lucide.createIcons();
+
+  // ── Add Stock listeners ────────────────────────────────────
+  listContainer.querySelectorAll('.btn-add-stock').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const target = e.currentTarget as HTMLButtonElement;
+      const id     = target.dataset.id!;
+      const name   = target.dataset.name!;
+      const stock  = parseInt(target.dataset.stock!) || 0;
+      openAddStockModal(id, name, stock, userId, container);
+    });
+  });
 
   // Edit listeners
   listContainer.querySelectorAll('.btn-edit-product').forEach(btn => {
@@ -760,41 +774,10 @@ async function renderProductsList(userId: string, container: HTMLElement) {
       const productId = target.dataset.id;
       if (!productId) return;
 
-      const product = products.find(p => p.id === productId);
-      if (!product) return;
-
-      // Improved confirmation dialog
-      if (!confirm(`Delete "${product.name}"?\n\nThis will permanently remove this product from your shop and cannot be undone.`)) {
-        return;
-      }
-
-      // Show loading state on button
-      target.disabled = true;
-      const originalHtml = target.innerHTML;
-      target.innerHTML = '<i data-lucide="loader"></i>';
-      if ((window as any).lucide) (window as any).lucide.createIcons();
-
-      const { error } = await supabase.from('products').delete().eq('id', productId);
-
-      if (error) {
-        // Re-enable button and show error
-        target.disabled = false;
-        target.innerHTML = originalHtml;
-        if ((window as any).lucide) (window as any).lucide.createIcons();
-        
-        // Show inline error message
-        const itemEl = target.closest('.prod-list-item') as HTMLElement;
-        if (itemEl) {
-          const errorMsg = document.createElement('p');
-          errorMsg.className = 'text-danger text-sm';
-          errorMsg.style.marginTop = '0.5rem';
-          errorMsg.textContent = 'Failed to delete: ' + error.message;
-          itemEl.appendChild(errorMsg);
-          setTimeout(() => errorMsg.remove(), 3000);
-        }
-      } else {
-        // Success: refresh list
-        await renderProductsList(userId, container);
+      if (confirm('Delete this product? This cannot be undone.')) {
+        const { error } = await supabase.from('products').delete().eq('id', productId);
+        if (error) alert('Error deleting: ' + error.message);
+        else await renderProductsList(userId, container);
       }
     });
   });
@@ -989,6 +972,108 @@ async function openEditProductModal(product: Product, userId: string, container:
   });
 }
 
+
+// ── Add Stock Modal ────────────────────────────────────────────
+function openAddStockModal(productId: string, productName: string, currentStock: number, userId: string, container: HTMLElement) {
+  // Remove any existing instance
+  document.getElementById('add-stock-modal')?.remove();
+
+  const div = document.createElement('div');
+  div.innerHTML = `
+    <div class="modal-overlay" id="add-stock-modal">
+      <div class="modal-card glass" style="max-width:380px;">
+        <div class="modal-header">
+          <h3><i data-lucide="plus-circle" style="display:inline;width:18px;height:18px;vertical-align:-3px;margin-right:6px;"></i> Add Stock</h3>
+          <button class="btn btn-icon" id="btn-close-stock-modal" aria-label="Close">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div style="padding:0.5rem 0 1rem;">
+          <p class="text-muted text-sm" style="margin-bottom:1.25rem;">
+            <strong>${productName}</strong> — currently <strong>${currentStock}</strong> in stock.
+          </p>
+          <div class="form-group">
+            <label for="add-stock-qty">Quantity to Add <span class="field-required">*</span></label>
+            <div class="input-with-icon">
+              <i data-lucide="boxes"></i>
+              <input type="number" id="add-stock-qty" min="1" value="1" />
+            </div>
+            <p class="text-muted text-sm" style="margin-top:0.35rem;">
+              New total will be <strong id="add-stock-preview">${currentStock + 1}</strong>
+            </p>
+          </div>
+          <p id="add-stock-error" class="field-error" style="margin-bottom:0.5rem;"></p>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancel-stock">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btn-confirm-stock">
+            <i data-lucide="plus-circle"></i> Add Stock
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  const modal = div.firstElementChild as HTMLElement;
+  document.body.appendChild(modal);
+  if ((window as any).lucide) (window as any).lucide.createIcons();
+  document.body.style.overflow = 'hidden';
+
+  const qtyInput   = modal.querySelector('#add-stock-qty')      as HTMLInputElement;
+  const preview    = modal.querySelector('#add-stock-preview')  as HTMLElement;
+  const errEl      = modal.querySelector('#add-stock-error')    as HTMLElement;
+  const confirmBtn = modal.querySelector('#btn-confirm-stock')  as HTMLButtonElement;
+
+  qtyInput.focus();
+  qtyInput.select();
+
+  // Live preview of new total
+  qtyInput.addEventListener('input', () => {
+    const qty = parseInt(qtyInput.value) || 0;
+    preview.textContent = String(currentStock + Math.max(0, qty));
+  });
+
+  const closeModal = () => {
+    modal.remove();
+    document.body.style.overflow = '';
+  };
+
+  modal.querySelector('#btn-close-stock-modal')?.addEventListener('click', closeModal);
+  modal.querySelector('#btn-cancel-stock')?.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+  // Confirm
+  confirmBtn.addEventListener('click', async () => {
+    const qty = parseInt(qtyInput.value) || 0;
+    errEl.style.display = 'none';
+
+    if (qty < 1) {
+      errEl.textContent = 'Enter at least 1.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<i data-lucide="loader"></i> Updating…';
+    if ((window as any).lucide) (window as any).lucide.createIcons();
+
+    const { error } = await supabase
+      .from('products')
+      .update({ stock: currentStock + qty })
+      .eq('id', productId);
+
+    confirmBtn.disabled = false;
+    confirmBtn.innerHTML = '<i data-lucide="plus-circle"></i> Add Stock';
+    if ((window as any).lucide) (window as any).lucide.createIcons();
+
+    if (error) {
+      errEl.textContent = 'Update failed: ' + error.message;
+      errEl.style.display = 'block';
+    } else {
+      closeModal();
+      await renderProductsList(userId, container);
+    }
+  });
+}
 
 // =============================================
 // ADS MANAGEMENT VIEW
