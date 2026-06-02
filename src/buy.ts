@@ -255,8 +255,41 @@ async function handleSubmit(e: Event) {
   showView('success');
   if ((window as any).lucide) (window as any).lucide.createIcons();
 
-  // Update local product stock so card reflects new count without reload
-  currentProduct = { ...currentProduct, stock: freshProduct.stock - qty };
+  // ── Update card in the DOM without full page reload ────────
+  const newStock = freshProduct.stock - qty;
+  currentProduct = { ...currentProduct, stock: newStock };
+  updateCardInDOM(currentProduct.id, newStock);
+}
+
+// ── Update product card in the DOM after purchase ─────────────
+function updateCardInDOM(productId: string, newStock: number) {
+  // Cards on both marketplace and shop page use data-product-id
+  const card = document.querySelector(
+    `[data-product-id="${productId}"]`
+  ) as HTMLElement | null;
+  if (!card) return;
+
+  if (newStock <= 0) {
+    // Remove the card entirely — product is out of stock
+    card.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+    card.style.opacity    = '0';
+    card.style.transform  = 'scale(0.95)';
+    setTimeout(() => card.remove(), 420);
+    return;
+  }
+
+  // Update stock badge
+  const badge = card.querySelector('.product-card-stock-badge');
+  if (badge) {
+    badge.textContent  = `${newStock} in stock`;
+    badge.className    = 'product-card-stock-badge in-stock';
+  }
+
+  // Update buy button max attribute (in case user buys again later)
+  const buyBtn = card.querySelector('.btn-buy') as HTMLButtonElement | null;
+  if (buyBtn) {
+    buyBtn.dataset.stock = String(newStock);
+  }
 }
 
 // ── Public API ─────────────────────────────────────────────────

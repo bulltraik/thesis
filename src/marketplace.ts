@@ -55,6 +55,7 @@ export async function initMarketplace() {
       *,
       profiles!products_profile_id_fkey(business_name, logo_url)
     `)
+    .gt('stock', 0)
     .order('created_at', { ascending: false });
 
   if (error) {

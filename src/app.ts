@@ -112,19 +112,17 @@ supabase.auth.onAuthStateChange((event, session) => {
   }
   
   if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-    // If they log in, take them to the dashboard automatically
-    if (document.getElementById('view-auth') || document.querySelector('.auth-container')) {
+    // If on auth page, redirect to dashboard
+    if (document.querySelector('.auth-container')) {
       switchView('view-dashboard');
       initDashboard();
     } else if (document.querySelector('.dashboard-layout')) {
       initDashboard();
     }
   } else if (event === 'SIGNED_OUT') {
-    // If they log out, take them back to the marketplace or auth view
-    if (document.querySelector('.dashboard-layout')) {
-      switchView('view-marketplace');
-      initMarketplace();
-    }
+    // Always go back to the landing page on logout, from any page
+    switchView('view-marketplace');
+    initMarketplace();
   }
 });
 
