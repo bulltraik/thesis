@@ -118,7 +118,7 @@ switchView('view-marketplace');
 initMarketplace();
 
 // Handle auth state changes globally
-supabase.auth.onAuthStateChange((event, session) => {
+supabase.auth.onAuthStateChange(async (event, session) => {
   console.log('Auth event:', event);
   currentSession = session;
   
