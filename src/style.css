@@ -2665,3 +2665,52 @@ input[type="url"]:focus {
   background: rgba(16, 185, 129, 0.1);
   color: var(--emerald-600);
 }
+
+/* =============================================
+   PRODUCT LIST — ACTION BUTTONS (labeled)
+   ============================================= */
+
+.prod-list-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.prod-list-actions .btn {
+  justify-content: flex-start;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+  min-width: 80px;
+}
+
+.prod-list-actions .btn i {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.btn-edit-product {
+  border: 1px solid var(--slate-200);
+}
+[data-theme="dark"] .btn-edit-product {
+  border-color: var(--slate-700);
+}
+.btn-edit-product:hover {
+  border-color: var(--emerald-400);
+  color: var(--emerald-500);
+}
+
+.btn-add-stock {
+  border: 1px solid var(--slate-200);
+}
+[data-theme="dark"] .btn-add-stock {
+  border-color: var(--slate-700);
+}
+
+@media (max-width: 600px) {
+  .prod-list-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}

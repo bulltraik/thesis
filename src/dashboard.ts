@@ -726,13 +726,13 @@ async function renderProductsList(userId: string, container: HTMLElement) {
           </div>
           <div class="prod-list-actions">
             <button class="btn btn-ghost btn-sm btn-add-stock" data-id="${p.id}" data-name="${p.name}" data-stock="${p.stock}" title="Add stock">
-              <i data-lucide="plus-circle"></i>
+              <i data-lucide="plus-circle"></i> Stock
             </button>
             <button class="btn btn-ghost btn-sm btn-edit-product" data-id="${p.id}" title="Edit product">
-              <i data-lucide="pencil"></i>
+              <i data-lucide="pencil"></i> Edit
             </button>
             <button class="btn btn-ghost btn-sm text-danger btn-delete-product" data-id="${p.id}" title="Delete product">
-              <i data-lucide="trash-2"></i>
+              <i data-lucide="trash-2"></i> Delete
             </button>
           </div>
         </div>
