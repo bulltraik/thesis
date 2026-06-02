@@ -10,6 +10,8 @@
   publish = "dist"
 
   # Node version — match your local environment
+  # IMPORTANT: Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
+  # in Netlify dashboard → Site settings → Environment variables
   environment = { NODE_VERSION = "20" }
 
 # ── SPA redirect rule ────────────────────────────────────────
