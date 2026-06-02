@@ -1543,7 +1543,12 @@ input[type="url"]:focus {
 }
 
 /* Actions column */
-.prod-list-actions { flex-shrink: 0; }
+.prod-list-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
 
 /* Empty state */
 .prod-empty-state {
