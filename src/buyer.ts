@@ -69,7 +69,8 @@ export async function initBuyerPortal() {
 async function loadBuyerProfile(container: HTMLElement, userId: string) {
   const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
   const profile = data as Profile | null;
-  const descLen = (profile?.description || '').length;
+  const descLen  = (profile?.description || '').length;
+  const logoUrl  = (profile as any)?.logo_url || '';
 
   container.innerHTML = `
     <div class="glass profile-form-card">
@@ -81,6 +82,30 @@ async function loadBuyerProfile(container: HTMLElement, userId: string) {
         </div>
       </div>
       <form id="buyer-profile-form" class="form">
+
+        <!-- Profile Picture Upload -->
+        <div class="form-group">
+          <label>Profile Picture</label>
+          <div class="logo-upload-area" id="buyer-logo-upload-area">
+            <div class="logo-upload-preview" id="buyer-logo-upload-preview">
+              ${logoUrl
+                ? `<img id="buyer-logo-preview-thumb" src="${logoUrl}" alt="Profile picture" class="logo-thumb" />`
+                : `<div id="buyer-logo-preview-thumb" class="logo-thumb-placeholder"><i data-lucide="image-plus"></i></div>`
+              }
+            </div>
+            <div class="logo-upload-info">
+              <p class="logo-upload-title">Upload a profile picture</p>
+              <p class="text-muted text-sm">PNG, JPG or WEBP · Max 2 MB</p>
+              <label for="buyer-logo-file" class="btn btn-ghost logo-upload-btn">
+                <i data-lucide="upload"></i> Choose File
+              </label>
+              <input type="file" id="buyer-logo-file" accept="image/png,image/jpeg,image/webp" style="display:none;" />
+            </div>
+          </div>
+          <input type="hidden" id="buyer-logo-url" value="${logoUrl}" />
+          <p id="buyer-logo-status" class="text-sm text-muted" style="margin-top:0.4rem;"></p>
+        </div>
+
         <div class="form-group">
           <label for="buyer-name">Display Name</label>
           <div class="input-with-icon">
@@ -122,6 +147,59 @@ async function loadBuyerProfile(container: HTMLElement, userId: string) {
   `;
   if ((window as any).lucide) (window as any).lucide.createIcons();
 
+  // ── Profile picture upload ─────────────────────────────────
+  const logoFileInput = document.getElementById('buyer-logo-file')    as HTMLInputElement;
+  const logoUrlHidden = document.getElementById('buyer-logo-url')     as HTMLInputElement;
+  const logoStatus    = document.getElementById('buyer-logo-status')  as HTMLElement;
+
+  logoFileInput?.addEventListener('change', async () => {
+    const file = logoFileInput.files?.[0];
+    if (!file) return;
+
+    const ALLOWED = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!ALLOWED.includes(file.type)) {
+      logoStatus.textContent = 'Only PNG, JPG or WEBP files are allowed.';
+      logoStatus.style.color = 'var(--danger-color)';
+      logoFileInput.value = '';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      logoStatus.textContent = 'File is too large. Max size is 2 MB.';
+      logoStatus.style.color = 'var(--danger-color)';
+      logoFileInput.value = '';
+      return;
+    }
+
+    logoStatus.textContent = 'Uploading…';
+    logoStatus.style.color = 'var(--text-muted)';
+
+    const ext      = file.name.split('.').pop();
+    const filePath = `${userId}/logo.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('logos')
+      .upload(filePath, file, { upsert: true, contentType: file.type });
+
+    if (uploadError) {
+      logoStatus.textContent = 'Upload failed: ' + uploadError.message;
+      logoStatus.style.color = 'var(--danger-color)';
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from('logos').getPublicUrl(filePath);
+    const publicUrl = urlData.publicUrl;
+
+    logoUrlHidden.value = publicUrl;
+
+    const thumb = document.getElementById('buyer-logo-preview-thumb') as HTMLElement;
+    if (thumb) {
+      thumb.outerHTML = `<img id="buyer-logo-preview-thumb" src="${publicUrl}" alt="Profile picture" class="logo-thumb" />`;
+    }
+
+    logoStatus.textContent = '✓ Picture uploaded successfully.';
+    logoStatus.style.color = 'var(--primary-color)';
+  });
+
   const aboutTA   = document.getElementById('buyer-about') as HTMLTextAreaElement;
   const descCount = document.getElementById('buyer-desc-count') as HTMLElement;
   aboutTA?.addEventListener('input', () => { descCount.textContent = String(aboutTA.value.length); });
@@ -135,13 +213,14 @@ async function loadBuyerProfile(container: HTMLElement, userId: string) {
     const address       = (document.getElementById('buyer-address')  as HTMLInputElement).value.trim();
     const contact_email = (document.getElementById('buyer-email')    as HTMLInputElement).value.trim();
     const description   = aboutTA.value.trim();
+    const logo_url      = logoUrlHidden.value.trim();
 
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<i data-lucide="loader"></i> Saving…';
     if ((window as any).lucide) (window as any).lucide.createIcons();
 
     const { error } = await supabase.from('profiles').upsert(
-      { id: userId, business_name, address, contact_email, description },
+      { id: userId, business_name, address, contact_email, description, logo_url },
       { onConflict: 'id' }
     );
 

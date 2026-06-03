@@ -499,12 +499,13 @@ async function loadProductsView(container: HTMLElement, userId: string) {
     document.body.style.overflow = '';
     (document.getElementById('add-product-form') as HTMLFormElement)?.reset();
     // Reset image preview
-    const placeholder = document.getElementById('prod-img-placeholder');
     const preview = document.getElementById('prod-img-preview');
-    if (preview && placeholder) {
-      preview.innerHTML = '';
-      preview.appendChild(placeholder);
-      placeholder.innerHTML = '<i data-lucide="image-plus"></i><span>Click or drag to upload</span>';
+    if (preview) {
+      preview.innerHTML = `
+        <div class="prod-img-placeholder" id="prod-img-placeholder">
+          <i data-lucide="image-plus"></i>
+          <span>Click or drag to upload</span>
+        </div>`;
     }
     const statusEl = document.getElementById('prod-img-status');
     if (statusEl) statusEl.textContent = '';
@@ -542,12 +543,14 @@ async function loadProductsView(container: HTMLElement, userId: string) {
     e.preventDefault();
     imgUploadArea.classList.remove('drag-over');
     const file = e.dataTransfer?.files?.[0];
-    if (file) handleProductImageUpload(file, userId, imgPreview, imgUrlHidden, imgPathHidden, imgStatus);
+    const submitBtn = document.getElementById('prod-submit-btn') as HTMLButtonElement | null;
+    if (file) handleProductImageUpload(file, userId, imgPreview, imgUrlHidden, imgPathHidden, imgStatus, submitBtn);
   });
 
   imgFileInput?.addEventListener('change', () => {
     const file = imgFileInput.files?.[0];
-    if (file) handleProductImageUpload(file, userId, imgPreview, imgUrlHidden, imgPathHidden, imgStatus);
+    const submitBtn = document.getElementById('prod-submit-btn') as HTMLButtonElement | null;
+    if (file) handleProductImageUpload(file, userId, imgPreview, imgUrlHidden, imgPathHidden, imgStatus, submitBtn);
   });
 
   // ── Add product form submit ────────────────────────────────
@@ -613,7 +616,8 @@ async function handleProductImageUpload(
   previewEl: HTMLElement,
   urlHidden: HTMLInputElement,
   pathHidden: HTMLInputElement,
-  statusEl: HTMLElement
+  statusEl: HTMLElement,
+  submitBtn?: HTMLButtonElement | null
 ) {
   const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
   const ALLOWED  = ['image/png', 'image/jpeg', 'image/webp'];
@@ -636,12 +640,23 @@ async function handleProductImageUpload(
   statusEl.textContent = 'Uploading…';
   statusEl.style.color = 'var(--text-muted)';
 
+  // Disable submit while upload is in progress so the URL is ready before save
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.dataset.uploading = 'true';
+  }
+
   const ext      = file.name.split('.').pop();
   const filePath = `${userId}/${Date.now()}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from('product-images')
-    .upload(filePath, file, { upsert: false, contentType: file.type });
+    .upload(filePath, file, { upsert: true, contentType: file.type });
+
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    delete submitBtn.dataset.uploading;
+  }
 
   if (uploadError) {
     statusEl.textContent = 'Upload failed: ' + uploadError.message;
@@ -901,12 +916,14 @@ async function openEditProductModal(product: Product, userId: string, container:
     e.preventDefault();
     editImgUploadArea.classList.remove('drag-over');
     const file = e.dataTransfer?.files?.[0];
-    if (file) handleProductImageUpload(file, userId, editImgPreview, editImgUrlHidden, editImgPathHidden, editImgStatus);
+    const submitBtn = editModal.querySelector('#edit-prod-submit-btn') as HTMLButtonElement | null;
+    if (file) handleProductImageUpload(file, userId, editImgPreview, editImgUrlHidden, editImgPathHidden, editImgStatus, submitBtn);
   });
 
   editImgFileInput?.addEventListener('change', () => {
     const file = editImgFileInput.files?.[0];
-    if (file) handleProductImageUpload(file, userId, editImgPreview, editImgUrlHidden, editImgPathHidden, editImgStatus);
+    const submitBtn = editModal.querySelector('#edit-prod-submit-btn') as HTMLButtonElement | null;
+    if (file) handleProductImageUpload(file, userId, editImgPreview, editImgUrlHidden, editImgPathHidden, editImgStatus, submitBtn);
   });
 
   // ── Form submit ────────────────────────────────────────────
