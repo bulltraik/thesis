@@ -1141,7 +1141,7 @@ async function renderSellerOrders(userId: string, container: HTMLElement) {
       *,
       products!product_id (id, name, image_url, price, stock),
       seller_profile:profiles!seller_id ( business_name ),
-      buyer_profile:profiles!buyer_id ( business_name, contact_email )
+      buyer_profile:profiles!buyer_id ( business_name, contact_email, address )
     `)
     .eq('seller_id', userId)
     .order('created_at', { ascending: false });
@@ -1176,6 +1176,7 @@ async function renderSellerOrders(userId: string, container: HTMLElement) {
     const prodName  = o.products?.name || 'Unknown';
     const prodImg   = o.products?.image_url;
     const buyerName = o.buyer_profile?.business_name || o.buyer_profile?.contact_email || 'A buyer';
+    const buyerAddress = o.buyer_profile?.address || 'No address provided';
     const total     = Number(o.total_price).toLocaleString('en-PH', { minimumFractionDigits: 2 });
     const date      = new Date(o.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
     const color     = statusColors[o.status] || '#64748b';
@@ -1196,7 +1197,13 @@ async function renderSellerOrders(userId: string, container: HTMLElement) {
             </span>
           </div>
           <p class="text-sm text-muted">
-            <strong>${buyerName}</strong> · ${o.quantity} unit${o.quantity > 1 ? 's' : ''} · ₱${total}
+            ${o.quantity} unit${o.quantity > 1 ? 's' : ''} · ₱${total}
+          </p>
+          <p class="text-sm text-muted">
+            <i data-lucide="user" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:4px;"></i><strong>${buyerName}</strong>
+          </p>
+          <p class="text-sm text-muted">
+            <i data-lucide="map-pin" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:4px;"></i>${buyerAddress}
           </p>
           ${o.note ? `<p class="text-sm text-muted" style="font-style:italic;">"${o.note}"</p>` : ''}
           ${o.delivery_date ? `<p class="text-sm" style="color:var(--emerald-500);">📅 Delivery: ${new Date(o.delivery_date).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}</p>` : ''}
